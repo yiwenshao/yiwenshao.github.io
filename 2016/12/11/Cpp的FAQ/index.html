@@ -1,0 +1,802 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.2" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="cpp," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="E.T Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.2" />
+
+
+
+
+
+
+<meta name="description" content="FAG系列之C++语法, 记录一些简单常用的可以快速搜到解答小问题.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cpp的FAQ">
+<meta property="og:url" content="yiwenshao.github.io/2016/12/11/Cpp的FAQ/index.html">
+<meta property="og:site_name" content="E.T Blog">
+<meta property="og:description" content="FAG系列之C++语法, 记录一些简单常用的可以快速搜到解答小问题.">
+<meta property="og:updated_time" content="2017-01-07T14:18:41.754Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Cpp的FAQ">
+<meta name="twitter:description" content="FAG系列之C++语法, 记录一些简单常用的可以快速搜到解答小问题.">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="yiwenshao.github.io/2016/12/11/Cpp的FAQ/"/>
+
+
+  <title> Cpp的FAQ | E.T Blog </title>
+</head>
+
+<body itemscope itemtype="//schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="//schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">E.T Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="//schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Cpp的FAQ
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2016-12-11T09:24:08+08:00" content="2016-12-11">
+              2016-12-11
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/FAQ/" itemprop="url" rel="index">
+                    <span itemprop="name">FAQ</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2016/12/11/Cpp的FAQ/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="2016/12/11/Cpp的FAQ/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2016/12/11/Cpp的FAQ/" class="leancloud_visitors" data-flag-title="Cpp的FAQ">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">阅读次数 </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>FAG系列之C++语法, 记录一些简单常用的可以快速搜到解答小问题.</p>
+<a id="more"></a>
+<h5 id="1-如何读取带空格的string"><a href="#1-如何读取带空格的string" class="headerlink" title="1. 如何读取带空格的string"></a>1. 如何读取带空格的string</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">std::string name;</div><div class="line">std::getline (std::cin,name);</div></pre></td></tr></table></figure>
+<h5 id="2-如何对string类型做split"><a href="#2-如何对string类型做split" class="headerlink" title="2. 如何对string类型做split"></a>2. 如何对string类型做split</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div></pre></td><td class="code"><pre><div class="line">//http://stackoverflow.com/questions/236129/split-a-string-in-c</div><div class="line">#include &lt;iostream&gt;</div><div class="line">#include &lt;sstream&gt;</div><div class="line">#include &lt;string&gt;</div><div class="line">#include &lt;vector&gt;</div><div class="line">void f1()&#123;</div><div class="line">    std::string s(&quot;Somewhere down the road&quot;);</div><div class="line">    std::istringstream iss(s);</div><div class="line"></div><div class="line">    do</div><div class="line">    &#123;</div><div class="line">        std::string sub;</div><div class="line">        iss &gt;&gt; sub;</div><div class="line">        std::cout &lt;&lt; &quot;Substring: &quot; &lt;&lt; sub &lt;&lt; std::endl;</div><div class="line">    &#125; while (iss);</div><div class="line">&#125;</div><div class="line"></div><div class="line">void split(const std::string &amp;s, char delim, std::vector&lt;std::string&gt; &amp;elems) &#123;</div><div class="line">    std::stringstream ss;</div><div class="line">    ss.str(s);</div><div class="line">    std::string item;</div><div class="line">    while (std::getline(ss, item, delim)) &#123;</div><div class="line">        elems.push_back(item);</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line">std::vector&lt;std::string&gt; split(const std::string &amp;s, char delim) &#123;</div><div class="line">    std::vector&lt;std::string&gt; elems;</div><div class="line">    split(s, delim, elems);</div><div class="line">    return elems;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h5 id="3-如何输出当前文件-类名等的调试信息"><a href="#3-如何输出当前文件-类名等的调试信息" class="headerlink" title="3. 如何输出当前文件,类名等的调试信息"></a>3. 如何输出当前文件,类名等的调试信息</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">std::cout&lt;&lt;__PRETTY_FUNCTION__&lt;&lt;&quot;:&quot;&lt;&lt;__LINE__&lt;&lt;&quot;:&quot;&lt;&lt;__FILE__&lt;&lt;std::endl;</div></pre></td></tr></table></figure>
+<h5 id="4-如何输出有色的调试信息"><a href="#4-如何输出有色的调试信息" class="headerlink" title="4. 如何输出有色的调试信息"></a>4. 如何输出有色的调试信息</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">#include&lt;iostream&gt;</div><div class="line">using namespace std;</div><div class="line">const std::string BOLD_BEGIN = &quot;\033[1m&quot;;</div><div class="line">const std::string RED_BEGIN = &quot;\033[1;31m&quot;;</div><div class="line">const std::string GREEN_BEGIN = &quot;\033[1;92m&quot;;</div><div class="line">const std::string COLOR_END = &quot;\033[0m&quot;;</div><div class="line">//参考 http://forum.ubuntu.org.cn/viewtopic.php?p=1427059</div><div class="line">int main()&#123;</div><div class="line">    cout&lt;&lt;RED_BEGIN&lt;&lt;&quot;HEHE&quot;&lt;&lt;COLOR_END&lt;&lt;endl;</div><div class="line">    string s=&quot;hello&quot;;</div><div class="line">    cout&lt;&lt;s&lt;&lt;endl;</div><div class="line">    cout&lt;&lt;GREEN_BEGIN&lt;&lt;s&lt;&lt;COLOR_END&lt;&lt;endl;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h5 id="5-使用变长参数模板的方法"><a href="#5-使用变长参数模板的方法" class="headerlink" title="5. 使用变长参数模板的方法"></a>5. 使用变长参数模板的方法</h5><p>提供了构造list和打印list的方法, 方便平时使用.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div></pre></td><td class="code"><pre><div class="line">struct ListNode &#123;</div><div class="line">    int val;</div><div class="line">    ListNode *next;</div><div class="line">    ListNode(int x) : val(x), next(NULL) &#123;&#125;</div><div class="line">&#125;;</div><div class="line"></div><div class="line">template&lt;typename T&gt;</div><div class="line">T* creatList(T* t)&#123;</div><div class="line">    return t;</div><div class="line">&#125;</div><div class="line">template&lt;class T,class ...arg&gt;</div><div class="line">T*  creatList(T* t,arg... rest)&#123;</div><div class="line">    t-&gt;next = creatList(rest...);</div><div class="line">    return t;</div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line">template&lt;class T&gt;</div><div class="line">ListNode*  creatListInt(T t)&#123;</div><div class="line">    ListNode* temp = new ListNode(t);</div><div class="line">    temp-&gt;next=NULL;</div><div class="line">    return temp;</div><div class="line">&#125;</div><div class="line"></div><div class="line">template&lt;class T,class ...arg&gt;</div><div class="line">ListNode*  creatListInt(T t,arg... rest)&#123;</div><div class="line">    ListNode* temp = new ListNode(t);</div><div class="line">    temp-&gt;next = creatListInt(rest...);</div><div class="line">    return temp;</div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line">template&lt;typename T&gt;</div><div class="line">void printList(T* t)&#123;</div><div class="line">    while(t)&#123;</div><div class="line">        cout&lt;&lt;t-&gt;val&lt;&lt;&quot;\t&quot;;</div><div class="line">        t = t-&gt;next;</div><div class="line">    &#125;</div><div class="line">    cout&lt;&lt;endl;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h5 id="如何根据值在vector中删除某个元素，而不是根据下标"><a href="#如何根据值在vector中删除某个元素，而不是根据下标" class="headerlink" title="如何根据值在vector中删除某个元素，而不是根据下标"></a>如何根据值在vector中删除某个元素，而不是根据下标</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">http://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position</div><div class="line">#include &lt;algorithm&gt;</div><div class="line">...</div><div class="line">vec.erase(std::remove(vec.begin(), vec.end(), 8), vec.end());</div></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/cpp/" rel="tag">#cpp</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/12/04/Hbase概述/" rel="next" title="Hbase概述">
+                <i class="fa fa-chevron-left"></i> Hbase概述
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/12/11/lua与Cpp传递参数接口介绍/" rel="prev" title="lua与Cpp传递参数接口介绍">
+                lua与Cpp传递参数接口介绍 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <div class="ds-share flat" data-thread-key="2016/12/11/Cpp的FAQ/"
+     data-title="Cpp的FAQ"
+     data-content=""
+     data-url="yiwenshao.github.io/2016/12/11/Cpp的FAQ/">
+  <div class="ds-share-inline">
+    <ul  class="ds-share-icons-16">
+
+      <li data-toggle="ds-share-icons-more"><a class="ds-more" href="javascript:void(0);">分享到：</a></li>
+      <li><a class="ds-weibo" href="javascript:void(0);" data-service="weibo">微博</a></li>
+      <li><a class="ds-qzone" href="javascript:void(0);" data-service="qzone">QQ空间</a></li>
+      <li><a class="ds-qqt" href="javascript:void(0);" data-service="qqt">腾讯微博</a></li>
+      <li><a class="ds-wechat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+
+    </ul>
+    <div class="ds-share-icons-more">
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+
+<div class="page-footer">
+    
+      <div id="eof" class="print-invisible">
+        <hr class="eof">
+      </div>
+
+      <div class="copyright" style="clear:both;">
+         <p><span>原始链接:</span><a href="/" title="Cpp的FAQ">yiwenshao.github.io/2016/12/11/Cpp的FAQ/</a></p>
+         <p><span>文章作者:</span><a href="/" title="访问 Yiwen Shao 的个人博客">Yiwen Shao</a></p>
+         <p><span>许可协议:</span><i class="fa fa-creative-commons"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/" title="Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)">Attribution-NonCommercial 4.0</a></p>
+         <p><span>转载请保留以上信息, 谢谢!</span></p>
+      </div>
+    
+
+    
+
+  </div>
+
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="2016/12/11/Cpp的FAQ/"
+           data-title="Cpp的FAQ" data-url="yiwenshao.github.io/2016/12/11/Cpp的FAQ/">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="//schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/images.png"
+               alt="Yiwen Shao" />
+          <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+          <p class="site-description motion-element" itemprop="description">database,computer science,redis, mysql</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">10</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">21</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-如何读取带空格的string"><span class="nav-number">1.</span> <span class="nav-text">1. 如何读取带空格的string</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-如何对string类型做split"><span class="nav-number">2.</span> <span class="nav-text">2. 如何对string类型做split</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-如何输出当前文件-类名等的调试信息"><span class="nav-number">3.</span> <span class="nav-text">3. 如何输出当前文件,类名等的调试信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-如何输出有色的调试信息"><span class="nav-number">4.</span> <span class="nav-text">4. 如何输出有色的调试信息</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#5-使用变长参数模板的方法"><span class="nav-number">5.</span> <span class="nav-text">5. 使用变长参数模板的方法</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#如何根据值在vector中删除某个元素，而不是根据下标"><span class="nav-number">6.</span> <span class="nav-text">如何根据值在vector中删除某个元素，而不是根据下标</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.2"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.2"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.2"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.2"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"casualet"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+    <script src="/lib/ua-parser-js/dist/ua-parser.min.js?v=0.7.9"></script>
+    <script src="/js/src/hook-duoshuo.js"></script>
+  
+
+
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("SvaY6D76qLG1VKc5FoMw0Exx-gzGzoHsz", "TpXxnLAyz251ybchaTve1YYR");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+
+  
+
+
+</body>
+</html>

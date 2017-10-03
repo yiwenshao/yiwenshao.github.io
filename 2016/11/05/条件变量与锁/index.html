@@ -1,0 +1,868 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.2" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="并发,生产者消费者,C语言," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="E.T Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.2" />
+
+
+
+
+
+
+<meta name="description" content="本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="条件变量与锁">
+<meta property="og:url" content="yiwenshao.github.io/2016/11/05/条件变量与锁/index.html">
+<meta property="og:site_name" content="E.T Blog">
+<meta property="og:description" content="本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.">
+<meta property="og:updated_time" content="2017-03-05T14:33:14.835Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="条件变量与锁">
+<meta name="twitter:description" content="本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="yiwenshao.github.io/2016/11/05/条件变量与锁/"/>
+
+
+  <title> 条件变量与锁 | E.T Blog </title>
+</head>
+
+<body itemscope itemtype="//schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="//schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">E.T Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="//schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                条件变量与锁
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2016-11-05T16:00:20+08:00" content="2016-11-05">
+              2016-11-05
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Tutorial/" itemprop="url" rel="index">
+                    <span itemprop="name">Tutorial</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2016/11/05/条件变量与锁/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="2016/11/05/条件变量与锁/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2016/11/05/条件变量与锁/" class="leancloud_visitors" data-flag-title="条件变量与锁">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">阅读次数 </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.<br><a id="more"></a></p>
+<h3 id="锁"><a href="#锁" class="headerlink" title="锁"></a>锁</h3><p>多线程情况下, 锁的使用主要涉及以下5个函数, 它们都包含在pthread.h头文件中.</p>
+<ul>
+<li><p>pthread_mutex_init(pthread_mutex_t <em> mutex,const pthread_mutexattr_t </em>attr)</p>
+</li>
+<li><p>pthread_mutex_lock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_tylock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_unlock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_destroy(pthread_mutex_t *mutex)</p>
+</li>
+</ul>
+<p>其中, 锁变量类型为pthread_mutex_t, 锁的使用包含三个步骤, 分别是锁的初始化, 加锁, 以及释放锁.</p>
+<p>下面分别介绍各个函数的用法</p>
+<h4 id="锁初始化"><a href="#锁初始化" class="headerlink" title="锁初始化"></a>锁初始化</h4><p>pthread_mutex_init该函数用于锁的初始化, 其函数头是</p>
+<p><strong>pthread_mutex_init(pthread_mutex_t <em> mutex,const pthread_mutexattr_t </em>attr)</strong></p>
+<p>要使用锁, 首先需要声明一个pthread_mutex_t变量,然后用该函数进行初始化, 如下</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">pthread_mutex_t</span> mutex;</div><div class="line">pthread_mutex_init(&amp;mutex,<span class="literal">NULL</span>);</div></pre></td></tr></table></figure>
+<p>初始化的时候, 第二个参数可以用于设置锁的性质, 设置方法可以参考文末的参考文献. 经过这一步, 我们完成了锁的初始化. 在第二个参数设置NULL的时候, 一个线程加锁, 另外一个线程再执行加锁操作, 就会阻塞, 直到另外的线程释放锁. 加锁可以用下面的函数来完成.</p>
+<h4 id="加锁"><a href="#加锁" class="headerlink" title="加锁"></a>加锁</h4><p>pthread_mutex_lock与pthread_mutex_tylock这两个函数可以用于加锁, 其函数头分别是:</p>
+<p><strong>pthread_mutex_lock(pthread_mutex_t *mutex)</strong></p>
+<p><strong>pthread_mutex_tylock(pthread_mutex_t *mutex)</strong></p>
+<p>这两个函数都完成了加锁的功能, 在获得了变量初始化后的mutex以后, 直接调用函数即可完成加锁功能. 其中第一个函数在另外一个线程已经获得锁的情况下, 会一直阻塞, 而第二个函数则会直接返回, 不会阻塞.</p>
+<h4 id="释放锁"><a href="#释放锁" class="headerlink" title="释放锁"></a>释放锁</h4><p><strong>pthread_mutex_unlock(pthread_mutex_t *mutex)</strong>函数可以用于释放锁.</p>
+<h4 id="回收资源"><a href="#回收资源" class="headerlink" title="回收资源"></a>回收资源</h4><p><strong>pthread_mutex_destroy(pthread_mutex_t *mutex)</strong>该函数用于释放资源, 在使用pthread_mutex_init函数进行锁初始化的情况下, 使用结束以后,需要使用该函数释放资源.</p>
+<h3 id="共享变量"><a href="#共享变量" class="headerlink" title="共享变量"></a>共享变量</h3><p>共享变量应用于这样一种场景: 一个线程先对某一条件进行判断, 如果条件不满足则进入等待, 条件满足的时候, 该线程被通知条件满足, 继续执行任务. 共享变量涉及的函数有如下6个</p>
+<ul>
+<li>int pthread_cond_init(pthread_cond_t <em>cond, pthread_condattr_t </em>cond_attr)</li>
+<li>int pthread_cond_wait(pthread_cond_t <em>cond, pthread_mutex_t </em>mutex)</li>
+<li>int pthread_cond_signal(pthread_cond_t *cond)</li>
+<li>int pthread_cond_broadcast(pthread_cond_t *cond)</li>
+<li>int pthread_cond_timedwait(pthread_cond_t <em>cond, pthread_mutex_t </em>mutex, const struct timespec *abstime)</li>
+</ul>
+<h4 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h4><p><strong>int pthread_cond_init(pthread_cond_t <em>cond, pthread_condattr_t </em>cond_attr)</strong></p>
+<p>要使用条件变量, 首先要声明一个pthread_cond_t变量, 然后用该函数进行初始化. 第二个参数使用NULL, 具体的参数设置, 限于篇幅, 参考文末的参考文献.</p>
+<h4 id="等待条件成立"><a href="#等待条件成立" class="headerlink" title="等待条件成立"></a>等待条件成立</h4><p><strong>int pthread_cond_wait(pthread_cond_t <em>cond, pthread_mutex_t </em>mutex)</strong></p>
+<p><strong>int pthread_cond_timedwait(pthread_cond_t <em>cond, pthread_mutex_t </em>mutex, const struct timespec *abstime)</strong></p>
+<p>在条件不满足的时候, 调用该函数进入等待. 当条件满足的时候, 该函数会停止等待, 继续执行. 该函数的第二个参数是pthread_mutex_t类型, 这是因为在条件判断的时候, 需要先进行加锁来防止出现错误, 在执行改函数前需要主动对这个变量执行加锁操作, 进入这个函数以后, <strong>其内部会对mutex进行解锁操作</strong>, 而函数执行完以后(也就是停止阻塞以后), 又会重新加锁. 具体原因, 在介绍完本组函数以后进行说明. 其中第二个函数可以指定等待的时间, 而不是一直在阻塞.</p>
+<h4 id="通知"><a href="#通知" class="headerlink" title="通知"></a>通知</h4><p><strong>int pthread_cond_signal(pthread_cond_t *cond)</strong> </p>
+<p><strong>int pthread_cond_broadcast(pthread_cond_t *cond)</strong></p>
+<p>上面说到, 在条件不满足的时候, 一个线程会调用pthread_cond_wait函数, 阻塞等待. 而此时如果其他线程检查到条件满足, 则可以调用这两个函数, 让处于等待状态的线程重新开始执行. 当有多个线程在等待的时候, 第一个函数会唤醒其中一个线程, 而第二个函数会唤醒所有的等待的线程.</p>
+<h3 id="共享变量与锁"><a href="#共享变量与锁" class="headerlink" title="共享变量与锁"></a>共享变量与锁</h3><p>介绍完了基本的函数功能, 接下来介绍这两套函数配合使用的一个常见场景: 有两个线程, 其中一个线程先对一个条件进行检查, 这个检查动作需要先加锁. 如果条件成立, 则执行操作, 否则阻塞等待, 直到条件成立, 这个线程才会被通知继续执行. 另一个线程先做加锁处理, 然后置条件为真, 并通知其他等待的线程条件已经满足, 可以继续执行.</p>
+<p>上面说在检查共享变量的时候, 要加锁, 其原因通过以下伪代码来说明.</p>
+<p>第一种情况<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">线程<span class="number">1</span></div><div class="line">pthread_mutex_lock(&amp;mutex); </div><div class="line"><span class="keyword">while</span> (condition == FALSE) &#123;</div><div class="line">    pthread_cond_wait(&amp;cond, &amp;mutex); </div><div class="line">&#125;</div><div class="line">pthread_mutex_unlock(&amp;mutex);</div><div class="line"></div><div class="line">线程<span class="number">2</span></div><div class="line">condition = TRUE;</div><div class="line">pthread_cond_signal(&amp;cond);</div></pre></td></tr></table></figure></p>
+<p>可以看到, 线程1先检查一个条件是否成立, 在不成立的情况下, 就调用wait函数进行等待. 而在这之前, 先对这步过程进行了加锁操作. 线程2则是把条件设置为true(假设其通过某种方式知道了这个时候该条件应当为true), 然后用pthread_cond_signal函数通知线程1停止阻塞继续执行. 上面的程序在多个线程并发执行的时候有如下的问题:<br>如果线程1先判断, 发现条件不满足, 准备进入等待, 在这个时候, 线程2中条件被置为真, 且发送通知. 然后线程1才阻塞等待, 这样的话, 线程1错过了一次通知, 导致其在条件满足的情况下依然在阻塞等待.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">        线程<span class="number">1</span>                               线程<span class="number">2</span></div><div class="line">pthread_mutex_lock(&amp;mutex);</div><div class="line"><span class="keyword">while</span> (condition == FALSE)</div><div class="line">                                      condition = TRUE;</div><div class="line">                                      pthread_cond_signal(&amp;cond);</div><div class="line">pthread_cond_wait(&amp;cond, &amp;mutex);</div></pre></td></tr></table></figure>
+<p>为了解决上面说的问题, 对程序进行了如下的改进. 通过线程2的加锁操作, 避免了这样的问题. 这也解释了为什么pthread_cond_wait函数在进入以后要进行解锁操作, 如果起不解锁, 那么线程2在进行条件置为true的操作就没有办法执行, 因为线程1在进入等待之前已经对这个变量加锁了. 这样线程1会一直等待, 而线程2也会等待, 导致死锁.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">线程<span class="number">1</span>                                       线程<span class="number">2</span></div><div class="line">pthread_mutex_lock(&amp;mutex);           pthread_mutex_lock(&amp;mutex);</div><div class="line"><span class="keyword">while</span> (condition == FALSE) &#123;          condition = TRUE;</div><div class="line"> pthread_cond_wait(&amp;cond, &amp;mutex);    pthread_cond_signal(&amp;cond);</div><div class="line">&#125;                                     pthread_mutex_unlock(&amp;mutex);</div><div class="line">pthread_mutex_unlock(&amp;mutex);</div></pre></td></tr></table></figure>
+<p>补充说明一点,因为wait重新执行的时候需要再次加锁,所以上面的pthread_cond_signal调用以后, 必须释放锁,才能够完成wait. 另外, 也可以先解锁, 然后调用pthread_cond_signal,这两种写法都是正确的. 虽然共享变量的访问一般需要加锁, 但在这个场景下不加锁造成的竞争不会产生错误,  只是会造成线程调度效率上的问题, 所以也可以这么写, 但是一般推荐标准的写法. 具体可以看参考文献.</p>
+<h3 id="条件变量的使用例子"><a href="#条件变量的使用例子" class="headerlink" title="条件变量的使用例子"></a>条件变量的使用例子</h3><p>下面的链接以redis 3.2.3的代码中的BIO模块为例子, 给出实际系统中的条件变量使用的方法. 可以发现, redis的BIO模块就是用上面介绍的模型实现的.</p>
+<p><a href="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/">Redis BIO系统</a></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>锁的基本使用包括了锁初始化, 加锁, 解锁三个步骤. 使用默认的锁性质时, 一个锁变量只能由一个线程获得, 在这个线程释放锁之前, 其他线程如果尝试获得锁, 就会进入阻塞的状态. 这样, 加锁和解锁之间的这段代码只有一个线程执行, 从而能够保证并发访问的正确性.</p>
+<p>对于条件变量, 其基本的使用场景是, 某些线程对条件进行判断, 如果不满足条件, 就进入等待状态. 在进行条件判断之前, 先进行加锁操作. 另外一些线程则是负责对条件赋值为真, 然后通知等待的线程继续执行, 线程被唤醒后, 继续进入判断的环节以及后续的操作.</p>
+<p>以上面例子来看, 也就是可以分为以下两部分:</p>
+<p>A类线程:</p>
+<ul>
+<li>加锁</li>
+<li>检查(条件不成立则等待,知道成立再次进入检查阶段)</li>
+<li>执行</li>
+<li>解锁</li>
+</ul>
+<p>B类线程:</p>
+<ul>
+<li>加锁</li>
+<li>条件置为真</li>
+<li>通知</li>
+<li>解锁</li>
+</ul>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><p><a href="">[1] Unix Networking Programming, Volume 2, W. Richard Stevens, chapter 7, 8</a><br><a href="http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex" target="_blank" rel="external">[2] stackoverflow/questions/4544234/</a><br><a href="https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/">[3] Redis BIO系统</a><br><a href="http://stackoverflow.com/questions/6312342/pthread-cond-wait-and-mutex-requirement" target="_blank" rel="external">[4] http://stackoverflow.com/questions/6312342/</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/并发/" rel="tag">#并发</a>
+          
+            <a href="/tags/生产者消费者/" rel="tag">#生产者消费者</a>
+          
+            <a href="/tags/C语言/" rel="tag">#C语言</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/10/05/redis集群搭建方法/" rel="next" title="Redis集群搭建方法">
+                <i class="fa fa-chevron-left"></i> Redis集群搭建方法
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/11/05/Redis的BIO系统/" rel="prev" title="Redis的BIO系统">
+                Redis的BIO系统 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <div class="ds-share flat" data-thread-key="2016/11/05/条件变量与锁/"
+     data-title="条件变量与锁"
+     data-content=""
+     data-url="yiwenshao.github.io/2016/11/05/条件变量与锁/">
+  <div class="ds-share-inline">
+    <ul  class="ds-share-icons-16">
+
+      <li data-toggle="ds-share-icons-more"><a class="ds-more" href="javascript:void(0);">分享到：</a></li>
+      <li><a class="ds-weibo" href="javascript:void(0);" data-service="weibo">微博</a></li>
+      <li><a class="ds-qzone" href="javascript:void(0);" data-service="qzone">QQ空间</a></li>
+      <li><a class="ds-qqt" href="javascript:void(0);" data-service="qqt">腾讯微博</a></li>
+      <li><a class="ds-wechat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+
+    </ul>
+    <div class="ds-share-icons-more">
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+
+<div class="page-footer">
+    
+      <div id="eof" class="print-invisible">
+        <hr class="eof">
+      </div>
+
+      <div class="copyright" style="clear:both;">
+         <p><span>原始链接:</span><a href="/" title="条件变量与锁">yiwenshao.github.io/2016/11/05/条件变量与锁/</a></p>
+         <p><span>文章作者:</span><a href="/" title="访问 Yiwen Shao 的个人博客">Yiwen Shao</a></p>
+         <p><span>许可协议:</span><i class="fa fa-creative-commons"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/" title="Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)">Attribution-NonCommercial 4.0</a></p>
+         <p><span>转载请保留以上信息, 谢谢!</span></p>
+      </div>
+    
+
+    
+
+  </div>
+
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="2016/11/05/条件变量与锁/"
+           data-title="条件变量与锁" data-url="yiwenshao.github.io/2016/11/05/条件变量与锁/">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="//schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/images.png"
+               alt="Yiwen Shao" />
+          <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+          <p class="site-description motion-element" itemprop="description">database,computer science,redis, mysql</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">10</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">21</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#锁"><span class="nav-number">1.</span> <span class="nav-text">锁</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#锁初始化"><span class="nav-number">1.1.</span> <span class="nav-text">锁初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#加锁"><span class="nav-number">1.2.</span> <span class="nav-text">加锁</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#释放锁"><span class="nav-number">1.3.</span> <span class="nav-text">释放锁</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#回收资源"><span class="nav-number">1.4.</span> <span class="nav-text">回收资源</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#共享变量"><span class="nav-number">2.</span> <span class="nav-text">共享变量</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#初始化"><span class="nav-number">2.1.</span> <span class="nav-text">初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#等待条件成立"><span class="nav-number">2.2.</span> <span class="nav-text">等待条件成立</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#通知"><span class="nav-number">2.3.</span> <span class="nav-text">通知</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#共享变量与锁"><span class="nav-number">3.</span> <span class="nav-text">共享变量与锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#条件变量的使用例子"><span class="nav-number">4.</span> <span class="nav-text">条件变量的使用例子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考文献"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.2"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.2"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.2"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.2"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"casualet"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+    <script src="/lib/ua-parser-js/dist/ua-parser.min.js?v=0.7.9"></script>
+    <script src="/js/src/hook-duoshuo.js"></script>
+  
+
+
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("SvaY6D76qLG1VKc5FoMw0Exx-gzGzoHsz", "TpXxnLAyz251ybchaTve1YYR");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+
+  
+
+
+</body>
+</html>
