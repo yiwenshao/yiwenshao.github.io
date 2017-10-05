@@ -2,13 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>yiwenshao.github.io/2017/10/03/token/</loc>
-    
-    <lastmod>2017-10-03T08:21:55.185Z</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>yiwenshao.github.io/books/index.html</loc>
     
     <lastmod>2017-10-03T07:32:19.777Z</lastmod>
@@ -17,6 +10,13 @@
   
   <url>
     <loc>yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/</loc>
+    
+    <lastmod>2017-10-03T07:32:19.773Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>yiwenshao.github.io/2016/12/11/Cpp%E7%9A%84FAQ/</loc>
     
     <lastmod>2017-10-03T07:32:19.773Z</lastmod>
     
@@ -65,13 +65,6 @@
   </url>
   
   <url>
-    <loc>yiwenshao.github.io/2016/11/12/Cryptdb%E5%9C%A8Ubuntu16-04%E4%B8%8A%E7%9A%84%E5%AE%89%E8%A3%85/</loc>
-    
-    <lastmod>2017-10-03T07:32:19.773Z</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>yiwenshao.github.io/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/</loc>
     
     <lastmod>2017-10-03T07:32:19.773Z</lastmod>
@@ -94,13 +87,6 @@
   
   <url>
     <loc>yiwenshao.github.io/2016/10/05/redis%E9%9B%86%E7%BE%A4%E6%90%AD%E5%BB%BA%E6%96%B9%E6%B3%95/</loc>
-    
-    <lastmod>2017-10-03T07:32:19.773Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>yiwenshao.github.io/2016/12/11/Cpp%E7%9A%84FAQ/</loc>
     
     <lastmod>2017-10-03T07:32:19.773Z</lastmod>
     
@@ -142,16 +128,16 @@
   </url>
   
   <url>
-    <loc>yiwenshao.github.io/categories/index.html</loc>
+    <loc>yiwenshao.github.io/2016/11/12/Cryptdb%E5%9C%A8Ubuntu16-04%E4%B8%8A%E7%9A%84%E5%AE%89%E8%A3%85/</loc>
     
     <lastmod>2017-10-03T07:32:19.773Z</lastmod>
     
   </url>
   
   <url>
-    <loc>yiwenshao.github.io/2017/10/03/hello-world/</loc>
+    <loc>yiwenshao.github.io/categories/index.html</loc>
     
-    <lastmod>2017-10-03T07:18:20.389Z</lastmod>
+    <lastmod>2017-10-03T07:32:19.773Z</lastmod>
     
   </url>
   
