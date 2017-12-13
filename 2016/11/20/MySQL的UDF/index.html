@@ -92,7 +92,7 @@
 <meta property="og:url" content="yiwenshao.github.io/2016/11/20/MySQL的UDF/index.html">
 <meta property="og:site_name" content="E.T Blog">
 <meta property="og:description" content="最近用到MySQL的UDF, 查了一下相关文献, 对用户用户实现function和Aggregate function的方法做个介绍. 本文用到的代码可以在https://github.com/yiwenshao/code_for_blog/tree/master/2017/5/MySQL%E7%9A%84UDF 下载获得.">
-<meta property="og:updated_time" content="2017-10-03T07:32:19.773Z">
+<meta property="og:updated_time" content="2017-05-11T09:29:10.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL的UDF">
 <meta name="twitter:description" content="最近用到MySQL的UDF, 查了一下相关文献, 对用户用户实现function和Aggregate function的方法做个介绍. 本文用到的代码可以在https://github.com/yiwenshao/code_for_blog/tree/master/2017/5/MySQL%E7%9A%84UDF 下载获得.">
@@ -329,7 +329,7 @@
 <h3 id="快速编写一个MySQL-UDF"><a href="#快速编写一个MySQL-UDF" class="headerlink" title="快速编写一个MySQL UDF"></a>快速编写一个MySQL UDF</h3><p>为了能够快速了解UDF(user-defined function)是什么, 我们首先构建一个最简单的UDF, 然后再介绍更细节的内容. 本文在Ubuntu16.04下测试, 开始之前需要先安装MySQL以及相关的库, 在Ubuntu下是:</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">sudo apt-get install libmysqlclient-dev</div></pre></td></tr></table></figure>
 <h4 id="Step1-编写c-代码并生成动态链接库"><a href="#Step1-编写c-代码并生成动态链接库" class="headerlink" title="Step1: 编写c++代码并生成动态链接库"></a>Step1: 编写c++代码并生成动态链接库</h4><p>示例c++代码如下:</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">extern</span> <span class="string">"c"</span>&#123;</div><div class="line"><span class="function"><span class="keyword">long</span> <span class="keyword">long</span> <span class="title">myadd</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line"><span class="function"><span class="params">                <span class="keyword">char</span> *is_null, <span class="keyword">char</span> *error)</span></span>;</div><div class="line"><span class="function">my_bool <span class="title">myadd_init</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line"><span class="function"><span class="params">                  <span class="keyword">char</span> *message)</span></span>;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">long</span> <span class="keyword">long</span> <span class="title">myadd</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line"><span class="function"><span class="params">                <span class="keyword">char</span> *is_null, <span class="keyword">char</span> *error)</span> </span>&#123;</div><div class="line">    <span class="keyword">int</span> a = *((<span class="keyword">long</span> <span class="keyword">long</span> *)args-&gt;args[<span class="number">0</span>]);</div><div class="line">    <span class="keyword">int</span> b = *((<span class="keyword">long</span> <span class="keyword">long</span> *)args-&gt;args[<span class="number">1</span>]);</div><div class="line">    <span class="keyword">return</span> a + b;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function">my_bool <span class="title">myadd_init</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line"><span class="function"><span class="params">                  <span class="keyword">char</span> *message)</span></span>&#123;</div><div class="line">    <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">extern</span> <span class="string">"c"</span>&#123;</div><div class="line"><span class="function"><span class="keyword">long</span> <span class="keyword">long</span> <span class="title">myadd</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line">                <span class="keyword">char</span> *is_null, <span class="keyword">char</span> *error);</div><div class="line"><span class="function">my_bool <span class="title">myadd_init</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line">                  <span class="keyword">char</span> *message);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">long</span> <span class="keyword">long</span> <span class="title">myadd</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line">                <span class="keyword">char</span> *is_null, <span class="keyword">char</span> *error) &#123;</div><div class="line">    <span class="keyword">int</span> a = *((<span class="keyword">long</span> <span class="keyword">long</span> *)args-&gt;args[<span class="number">0</span>]);</div><div class="line">    <span class="keyword">int</span> b = *((<span class="keyword">long</span> <span class="keyword">long</span> *)args-&gt;args[<span class="number">1</span>]);</div><div class="line">    <span class="keyword">return</span> a + b;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function">my_bool <span class="title">myadd_init</span><span class="params">(UDF_INIT *initid, UDF_ARGS *args,</span></span></div><div class="line">                  <span class="keyword">char</span> *message)&#123;</div><div class="line">    <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>完成以后, 将文件保存为udf.cpp 然后使用如下的命令编译动态链接库:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">g++ -shared -fPIC -I /usr/include/mysql -o udf.so udf.cpp</div></pre></td></tr></table></figure></p>
 <p>获得udf.so文件.</p>
 <h4 id="Step2-在MySQL中添加函数"><a href="#Step2-在MySQL中添加函数" class="headerlink" title="Step2: 在MySQL中添加函数"></a>Step2: 在MySQL中添加函数</h4><p>完成上述的编写以后, 将udf.so文件拷贝到MySQL的plugin目录下, 在Ubuntu16.04中默认是:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">/usr/lib/mysql/plugin/</div></pre></td></tr></table></figure></p>
@@ -639,7 +639,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">15</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
@@ -647,7 +647,7 @@
           
             <div class="site-state-item site-state-categories">
               <a href="/categories">
-                <span class="site-state-item-count">10</span>
+                <span class="site-state-item-count">9</span>
                 <span class="site-state-item-name">分类</span>
               </a>
             </div>
@@ -656,7 +656,7 @@
           
             <div class="site-state-item site-state-tags">
               <a href="/tags">
-                <span class="site-state-item-count">21</span>
+                <span class="site-state-item-count">20</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

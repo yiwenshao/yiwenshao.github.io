@@ -92,7 +92,7 @@
 <meta property="og:url" content="yiwenshao.github.io/2016/11/09/多线程的数据竞争问题/index.html">
 <meta property="og:site_name" content="E.T Blog">
 <meta property="og:description" content="摘要在Redis的Bio代码中, 需要使用for循环创建两个服务线程, 并且把两个整数0 1作为参数传到线程执行的函数中. 这个问题涉及到在linux c中, 用for循环创建多个线程并传参数时会遇到的数据竞争问题. 本文给出该问题的分析, 几段相关的错误代码的分析, 并结合redis的BIO模块代码给出总结.">
-<meta property="og:updated_time" content="2017-10-03T07:32:19.773Z">
+<meta property="og:updated_time" content="2016-11-09T08:55:54.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="多线程的数据竞争问题">
 <meta name="twitter:description" content="摘要在Redis的Bio代码中, 需要使用for循环创建两个服务线程, 并且把两个整数0 1作为参数传到线程执行的函数中. 这个问题涉及到在linux c中, 用for循环创建多个线程并传参数时会遇到的数据竞争问题. 本文给出该问题的分析, 几段相关的错误代码的分析, 并结合redis的BIO模块代码给出总结.">
@@ -344,7 +344,7 @@
 <h3 id="Redis-Bio的做法"><a href="#Redis-Bio的做法" class="headerlink" title="Redis Bio的做法"></a>Redis Bio的做法</h3><p>Ridis的bio中需要有两个后台线程处理任务, 其用for循环创建了两个线程, 并且也是将一个整型传入线程函数, 其相关代码如下.</p>
 <p><strong>创建线程的代码</strong><br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; BIO_NUM_OPS; j++) &#123;</div><div class="line">    <span class="keyword">void</span> *arg = (<span class="keyword">void</span>*)(<span class="keyword">unsigned</span> <span class="keyword">long</span>) j;</div><div class="line">    <span class="keyword">if</span> (pthread_create(&amp;thread,&amp;attr,bioProcessBackgroundJobs,arg) != <span class="number">0</span>) &#123;</div><div class="line">        serverLog(LL_WARNING,<span class="string">"Fatal: Can't initialize Background Jobs."</span>);</div><div class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</div><div class="line">    &#125;</div><div class="line">    bio_threads[j] = thread;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
 <p><strong>线程内部的处理</strong></p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">void</span> *<span class="title">bioProcessBackgroundJobs</span><span class="params">(<span class="keyword">void</span> *arg)</span> </span>&#123;</div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">bio_job</span> *<span class="title">job</span>;</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> type = (<span class="keyword">unsigned</span> <span class="keyword">long</span>) arg;</div><div class="line">    <span class="keyword">sigset_t</span> sigset;</div><div class="line">    ......</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">void</span> *<span class="title">bioProcessBackgroundJobs</span><span class="params">(<span class="keyword">void</span> *arg)</span> </span>&#123;</div><div class="line">    <span class="keyword">struct</span> bio_job *job;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> type = (<span class="keyword">unsigned</span> <span class="keyword">long</span>) arg;</div><div class="line">    <span class="keyword">sigset_t</span> sigset;</div><div class="line">    ......</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>可以看到, Redis的Bio中使用了上述的第二种解决方案。</p>
 <h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>使用for循环结合pthread_create创建多个线程, 并且传递循环中使用的变量<strong>i</strong>作为参数的时候,会遇到数据竞争的问题, 本文介绍了问题出现的原因, 以及两种解决方案. 一种方法是依然传递指针, 并是做数据的拷贝, 使得多线程没有共享数据; 另一种是直接利用指针的空间来传递整数, 把指针当成整数来用,而不传递指针. 其中第二种方法在Redis的Bio代码中得到使用.</p>
 <h3 id="相关文献"><a href="#相关文献" class="headerlink" title="相关文献"></a>相关文献</h3><p><a href="http://stackoverflow.com/questions/39117674/how-to-pass-arguments-when-using-pthread-create" target="_blank" rel="external">[1] stackoverflow/questions/39117674/</a></p>
@@ -502,7 +502,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">15</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
@@ -510,7 +510,7 @@
           
             <div class="site-state-item site-state-categories">
               <a href="/categories">
-                <span class="site-state-item-count">10</span>
+                <span class="site-state-item-count">9</span>
                 <span class="site-state-item-name">分类</span>
               </a>
             </div>
@@ -519,7 +519,7 @@
           
             <div class="site-state-item site-state-tags">
               <a href="/tags">
-                <span class="site-state-item-count">21</span>
+                <span class="site-state-item-count">20</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>
