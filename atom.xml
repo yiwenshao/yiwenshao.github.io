@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="yiwenshao.github.io/"/>
-  <updated>2017-05-11T08:28:14.000Z</updated>
+  <updated>2018-02-25T12:15:05.906Z</updated>
   <id>yiwenshao.github.io/</id>
   
   <author>
@@ -20,7 +20,7 @@
     <link href="yiwenshao.github.io/2017/05/01/Cryptdb%E5%8E%9F%E7%90%86%E6%A6%82%E8%BF%B0/"/>
     <id>yiwenshao.github.io/2017/05/01/Cryptdb原理概述/</id>
     <published>2017-05-01T13:14:12.000Z</published>
-    <updated>2017-05-11T08:28:14.000Z</updated>
+    <updated>2018-02-25T12:15:05.906Z</updated>
     
     <content type="html"><![CDATA[<p>Cryptdb[1]是MIT的CSAIL 在11年sosp上提出的, 其在数据库上实现了同态加密技术. 本文基于一些相关文献, 以及对代码的调研, 对该系统的实现原理以及相关的技术做介绍.</p>
 <a id="more"></a>
@@ -31,7 +31,7 @@
 <p>但是, 如果我们只是要求部分的加密操作, 而不是想对加密数据进行任意的操作, 是不是有复杂度低的算法, 可以满足实际系统的需求呢?  Cryptdb就是基于这种思想提出的, 对于数据库来说, 常见的操作不多, 如果只是支持一部分的加密操作, 复杂度是可以接受的. </p>
 <h3 id="Cryptdb"><a href="#Cryptdb" class="headerlink" title="Cryptdb"></a>Cryptdb</h3><p>Cryptdb 希望在数据库系统上实现加密运算, 达到的效果是: 存在数据库中的数据全部是加密的, 但数据库依然可以对加密的数据执行用户的SQL语句, 返回加密的数据给用户, 然后用户可以对返回的结果进行解密, 获得明文的数据. 其基于的思想是, 全同态加密难以实用, 但对于数据库来说, 只要求几种常见的运算, 不需要任意的运算. 举例来说, 对于普通的select 语句中的where条件, 需要比较相等的运算. 对于order by, 需要比较大小的运算, 对于一些函数如SUM, 需要加法运算. 如果只是支持这些常见的操作,  就可以在吞吐量下降20%的开销的情况下, 满足大部分的SQL查询.</p>
 <h4 id="系统组成模型"><a href="#系统组成模型" class="headerlink" title="系统组成模型"></a>系统组成模型</h4><p>Cryptdb系统可以分为三个部分: Client, MySQL-Proxy, 以及MySQL-SERVER. 其主要逻辑实现在MySQL-Proxy, 对于MySQL-SERVER则是通过UDF来完成一些辅助的功能. </p>
-<p><img src="http://115.29.113.239/blogGraph/2017/5/cryptdb.png" alt=""></p>
+<p><img src="https://yiwenshao.github.io/blogGraph/2017/5/cryptdb.png" alt=""></p>
 <p>MySQL-Proxy能够获取用户发送的SQL请求, 并进行中间的处理, 然后将处理以后的请求发送给MySQL-SERVER. 请求在服务器上执行完成以后, 结果也会经过MySQL-Proxy的处理, 然后返回给客户端. </p>
 <p>所以, Cryptdb的基本想法是, 在MySQL-Proxy处对用户的SQL的关键字段请求进行加密,并且依然保证SQL语句的语法要求, 然后发送给MySQL-SERVER, 处理完成以后, MySQL-SERVER返回加密的数据给MySQL-PROXY, 在Proxy处解密, 然后返回给客户端. </p>
 <h4 id="加密查询的支持"><a href="#加密查询的支持" class="headerlink" title="加密查询的支持"></a>加密查询的支持</h4><p>有了上面的系统模型, 我们已经可以对插入的数据进行加密, 下面通过例子说明如何在这种条件下实现加密数据的查询.</p>
@@ -110,8 +110,8 @@
 <p>如果需要支持加法或者乘法操作, 则需要使用HOM也即同态加密. 数据列通过这类算法加密以后, 就可以在加密的情况下进行加法和乘法的操作, 并且返回结果给MySQL-Proxy, 然后MySQL-Proxy可以将数据解密返回给客户端. </p>
 <h4 id="洋葱存储模型"><a href="#洋葱存储模型" class="headerlink" title="洋葱存储模型"></a>洋葱存储模型</h4><p>上面的例子中, OPE算法可以支持大小比较, DET算法可以支持两个数是否想等的比较, HOM可以支持加法. 但是没有一种算法可以同时支持多种操作, 所以依然是上面的表格, 如果我们需要同时支持加法和大小比较的操作, 就必须另外想办法处理. 在论文中提出的方法是多洋葱模型,  简单来说, 就是对于GPA这列数据, 用不同的算法存储多次, 需要哪种操作, 就选择哪种算法加密的列进行处理. </p>
 <p>下面给出论文中的例子:</p>
-<p><img src="http://115.29.113.239/blogGraph/2017/5/table.png" alt=""></p>
-<p><img src="http://115.29.113.239/blogGraph/2017/5/onion.png" alt=""></p>
+<p><img src="https://yiwenshao.github.io/blogGraph/2017/5/table.png" alt=""></p>
+<p><img src="https://yiwenshao.github.io/blogGraph/2017/5/onion.png" alt=""></p>
 <p>如图所示, 原始的Employees表有两列, 上面的四个层次化的洋葱模型, 分别可以支持不同的加密操作. 其中Onion Eq支持相等比较的操作, Onion Ord支持大小比较, Onion Add支持加法, 而Onion Search 支持LIKE的搜索. 所以为了支持不同的操作, 原始的列ID被存储成了四列, 一个洋葱存一列. 这样, 要对ID进行加法操作, 就转换成对加密表的C1-Add列进行操作, 要对ID列进行排序操作, 则转换成对C1-Ord列进行操作, 这个转化就是通过MySQL-Proxy来完成. 由于ID是整数, 不需要支持search 操作, 所以也就没有进行存储. </p>
 <p>还有一个问题, 就是为什么要多层次的加密? 这主要是为了保证数据的安全性, 同时保证能够支持加密操作,是一种折中的设计. 一开始所有的洋葱都是处于RND层次, 也就是加密等级最高的层次. 在这个层次, 没有DET和OPE的性质, 不能支持相应的操作. 如果某一次用户需要OPE或者DET的行为, 就对这一列数据进行解密, 解密到DET或者OPE的层次, 然后再进行处理. 这个剥洋葱的过程, 可以由MySQL-SERVER来完成, 因为这种解密不会暴露明文给服务器. </p>
 <p>所以, 对于上述的表格, 如果我们执行如下的插入语句:</p>
@@ -258,7 +258,7 @@
     <link href="yiwenshao.github.io/2017/01/01/MySQL%E7%9A%84Embedded%E6%A8%A1%E5%BC%8FC%E6%8E%A5%E5%8F%A3/"/>
     <id>yiwenshao.github.io/2017/01/01/MySQL的Embedded模式C接口/</id>
     <published>2017-01-01T09:32:26.000Z</published>
-    <updated>2017-12-13T01:47:11.368Z</updated>
+    <updated>2017-12-13T01:47:11.000Z</updated>
     
     <content type="html"><![CDATA[<p>MySQL除了CS运行模式, 还有embedded模式. 相关文档介绍比较少,也比较散乱, 最近项目中正好用到, 现通过本文对其基本用法做个介绍,给出可以运行的基本例子.本文基于mysql5.5.</p>
 <a id="more"></a>
