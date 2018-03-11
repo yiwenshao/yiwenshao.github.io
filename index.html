@@ -181,22 +181,6 @@
         </li>
       
         
-        <li class="menu-item menu-item-categories">
-          <a href="/categories" rel="section">
-            
-            分类
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-about">
-          <a href="/about" rel="section">
-            
-            关于
-          </a>
-        </li>
-      
-        
         <li class="menu-item menu-item-archives">
           <a href="/archives" rel="section">
             
@@ -209,6 +193,14 @@
           <a href="/tags" rel="section">
             
             标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-schedule">
+          <a href="/schedule" rel="section">
+            
+            日程
           </a>
         </li>
       
@@ -229,6 +221,128 @@
           <div id="content" class="content">
             
   <section id="posts" class="posts-expand">
+    
+      
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="//schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2018/03/11/CryptDB代码分析3-元数据管理结构/" itemprop="url">
+                  CryptDB代码分析3-元数据管理结构
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2018-03-11T20:10:23+08:00" content="2018-03-11">
+              2018-03-11
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Cryptdb的设计与实现/" itemprop="url" rel="index">
+                    <span itemprop="name">Cryptdb的设计与实现</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2018/03/11/CryptDB代码分析3-元数据管理结构/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="2018/03/11/CryptDB代码分析3-元数据管理结构/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p>本文是CryptDB代码分析的第三篇。在CryptDB中，需要对加密过程进行记录：比如某个表的原始名字和加密以后的名字，表中有多少列，每列用了什么样的加密算法。这些信息被记录在mysql-proxy端的embedded MySQL中。CryptDB使用了元数据管理的模块处理这些信息，相关代码主要位于main/dbobject.hh以及main/schema.cc。</p>
+          <div class="post-more-link text-center">
+            <a class="btn" href="/2018/03/11/CryptDB代码分析3-元数据管理结构/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
     
       
 
@@ -305,15 +419,6 @@
           
 
           
-          
-             <span id="/2018/03/06/CryptDB代码分析2-handler与executor/" class="leancloud_visitors" data-flag-title="CryptDB代码分析2-handler与executor">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
           
 
           
@@ -437,15 +542,6 @@
 
           
           
-             <span id="/2018/02/26/CryptDB代码分析1-lua与加密库/" class="leancloud_visitors" data-flag-title="CryptDB代码分析1-lua与加密库">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
 
           
         </div>
@@ -567,15 +663,6 @@
           
 
           
-          
-             <span id="/2017/05/01/Cryptdb原理概述/" class="leancloud_visitors" data-flag-title="Cryptdb原理概述(1)">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
           
 
           
@@ -699,15 +786,6 @@
 
           
           
-             <span id="/2017/03/11/Redis事件处理机制/" class="leancloud_visitors" data-flag-title="Redis事件处理机制">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
 
           
         </div>
@@ -829,15 +907,6 @@
           
 
           
-          
-             <span id="/2017/01/16/如何用C-偷私有变量/" class="leancloud_visitors" data-flag-title="如何用C++偷私有变量">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
           
 
           
@@ -961,15 +1030,6 @@
 
           
           
-             <span id="/2017/01/01/MySQL的Embedded模式C接口/" class="leancloud_visitors" data-flag-title="MySQL的Embedded模式C接口">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
 
           
         </div>
@@ -1091,15 +1151,6 @@
           
 
           
-          
-             <span id="/2016/12/25/cscope快速教程/" class="leancloud_visitors" data-flag-title="cscope快速教程">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
           
 
           
@@ -1223,15 +1274,6 @@
 
           
           
-             <span id="/2016/12/18/linux网络编程系列-地址结构-1/" class="leancloud_visitors" data-flag-title="linux网络编程系列-地址结构(1)">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
 
           
         </div>
@@ -1354,15 +1396,6 @@
 
           
           
-             <span id="/2016/12/11/lua与Cpp传递参数接口介绍/" class="leancloud_visitors" data-flag-title="lua与Cpp传递参数接口介绍">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
 
           
         </div>
@@ -1380,137 +1413,6 @@
           <p>最近在开源代码中遇到MySQL-Proxy, 其允许lua脚本实现用户的个性化配置, lua脚本可以引用C/C++的动态链接库完成一些复杂的功能. 本文对最近接触到的lua和C/C++混合的相关接口使用做个总结. 本文的完整代码在文末的附录中, 代码测试在Ubuntu16.04+lua5.1下完成, 不同版本可能API有所变化, 可以参考文末给出的官方文档链接.</p>
           <div class="post-more-link text-center">
             <a class="btn" href="/2016/12/11/lua与Cpp传递参数接口介绍/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
-      
-
-  
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="//schema.org/Article">
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                
-                <a class="post-title-link" href="/2016/12/04/Hbase概述/" itemprop="url">
-                  Hbase概述
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            <span class="post-meta-item-icon">
-              <i class="fa fa-calendar-o"></i>
-            </span>
-            <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2016-12-04T15:37:02+08:00" content="2016-12-04">
-              2016-12-04
-            </time>
-          </span>
-
-          
-            <span class="post-category" >
-              &nbsp; | &nbsp;
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-              
-                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
-                  <a href="/categories/database/" itemprop="url" rel="index">
-                    <span itemprop="name">database</span>
-                  </a>
-                </span>
-
-                
-                
-
-              
-            </span>
-          
-
-          
-            
-              <span class="post-comments-count">
-                &nbsp; | &nbsp;
-                <a href="/2016/12/04/Hbase概述/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count ds-thread-count" data-thread-key="2016/12/04/Hbase概述/" itemprop="commentsCount"></span>
-                </a>
-              </span>
-            
-          
-
-          
-
-          
-          
-             <span id="/2016/12/04/Hbase概述/" class="leancloud_visitors" data-flag-title="Hbase概述">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">阅读次数 </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
-
-          
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p>本文对最近接触到<a href="https://hbase.apache.org/">Hbase</a>相关的资料做个简单整理, 主要包含了数据模型, 底层存储结构, 以及分布式模型.Hbase是Google发表的论文Bigtable的开源实现, 文中对于BigTable和Hbase中的对应的名词在不引起歧义的情况下可能混合使用, 不做区分. </p>
-          <div class="post-more-link text-center">
-            <a class="btn" href="/2016/12/04/Hbase概述/#more" rel="contents">
               阅读全文 &raquo;
             </a>
           </div>
@@ -1577,7 +1479,7 @@
       <section class="site-overview sidebar-panel  sidebar-panel-active ">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="//schema.org/Person">
           <img class="site-author-image" itemprop="image"
-               src="/images/images.png"
+               src="/images/avatar.gif"
                alt="Yiwen Shao" />
           <p class="site-author-name" itemprop="name">Yiwen Shao</p>
           <p class="site-description motion-element" itemprop="description">database,computer science,redis, mysql</p>
@@ -1585,17 +1487,17 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">17</span>
+              <span class="site-state-item-count">18</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
 
           
             <div class="site-state-item site-state-categories">
-              <a href="/categories">
+              
                 <span class="site-state-item-count">9</span>
                 <span class="site-state-item-name">分类</span>
-              </a>
+              
             </div>
           
 
@@ -1771,113 +1673,6 @@
   
 
   
-
-  
-  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
-  <script>AV.initialize("SvaY6D76qLG1VKc5FoMw0Exx-gzGzoHsz", "TpXxnLAyz251ybchaTve1YYR");</script>
-  <script>
-    function showTime(Counter) {
-      var query = new AV.Query(Counter);
-      var entries = [];
-      var $visitors = $(".leancloud_visitors");
-
-      $visitors.each(function () {
-        entries.push( $(this).attr("id").trim() );
-      });
-
-      query.containedIn('url', entries);
-      query.find()
-        .done(function (results) {
-          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
-
-          if (results.length === 0) {
-            $visitors.find(COUNT_CONTAINER_REF).text(0);
-            return;
-          }
-
-          for (var i = 0; i < results.length; i++) {
-            var item = results[i];
-            var url = item.get('url');
-            var time = item.get('time');
-            var element = document.getElementById(url);
-
-            $(element).find(COUNT_CONTAINER_REF).text(time);
-          }
-          for(var i = 0; i < entries.length; i++) {
-            var url = entries[i];
-            var element = document.getElementById(url);
-            var countSpan = $(element).find(COUNT_CONTAINER_REF);
-            if( countSpan.text() == '') {
-              countSpan.text(0);
-            }
-          }
-        })
-        .fail(function (object, error) {
-          console.log("Error: " + error.code + " " + error.message);
-        });
-    }
-
-    function addCount(Counter) {
-      var $visitors = $(".leancloud_visitors");
-      var url = $visitors.attr('id').trim();
-      var title = $visitors.attr('data-flag-title').trim();
-      var query = new AV.Query(Counter);
-
-      query.equalTo("url", url);
-      query.find({
-        success: function(results) {
-          if (results.length > 0) {
-            var counter = results[0];
-            counter.fetchWhenSave(true);
-            counter.increment("time");
-            counter.save(null, {
-              success: function(counter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(counter.get('time'));
-              },
-              error: function(counter, error) {
-                console.log('Failed to save Visitor num, with error message: ' + error.message);
-              }
-            });
-          } else {
-            var newcounter = new Counter();
-            /* Set ACL */
-            var acl = new AV.ACL();
-            acl.setPublicReadAccess(true);
-            acl.setPublicWriteAccess(true);
-            newcounter.setACL(acl);
-            /* End Set ACL */
-            newcounter.set("title", title);
-            newcounter.set("url", url);
-            newcounter.set("time", 1);
-            newcounter.save(null, {
-              success: function(newcounter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
-              },
-              error: function(newcounter, error) {
-                console.log('Failed to create');
-              }
-            });
-          }
-        },
-        error: function(error) {
-          console.log('Error:' + error.code + " " + error.message);
-        }
-      });
-    }
-
-    $(function() {
-      var Counter = AV.Object.extend("Counter");
-      if ($('.leancloud_visitors').length == 1) {
-        addCount(Counter);
-      } else if ($('.post-title-link').length > 1) {
-        showTime(Counter);
-      }
-    });
-  </script>
-
-
 
   
 
