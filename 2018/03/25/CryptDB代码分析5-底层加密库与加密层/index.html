@@ -1,0 +1,728 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.2" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="CryptDB," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Life of yiwen" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.2" />
+
+
+
+
+
+
+<meta name="description" content="CryptDB要进行数据加密，需要实现具体的加密算法，然后使用加密层类型来进行封装。如果用户想在其上实现新的功能，一方面需要实现加密算法，一方面要添加加密层以及其他相关辅助结构。本文介绍这两者之间的一些接口设计，方便大家基于现有代码做实验。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CryptDB代码分析5-底层加密库与加密层">
+<meta property="og:url" content="yiwenshao.github.io/2018/03/25/CryptDB代码分析5-底层加密库与加密层/index.html">
+<meta property="og:site_name" content="Life of yiwen">
+<meta property="og:description" content="CryptDB要进行数据加密，需要实现具体的加密算法，然后使用加密层类型来进行封装。如果用户想在其上实现新的功能，一方面需要实现加密算法，一方面要添加加密层以及其他相关辅助结构。本文介绍这两者之间的一些接口设计，方便大家基于现有代码做实验。">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classEncLayer.png">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/5/classLayerFactory.png">
+<meta property="og:updated_time" content="2018-03-25T07:31:40.226Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="CryptDB代码分析5-底层加密库与加密层">
+<meta name="twitter:description" content="CryptDB要进行数据加密，需要实现具体的加密算法，然后使用加密层类型来进行封装。如果用户想在其上实现新的功能，一方面需要实现加密算法，一方面要添加加密层以及其他相关辅助结构。本文介绍这两者之间的一些接口设计，方便大家基于现有代码做实验。">
+<meta name="twitter:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classEncLayer.png">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="yiwenshao.github.io/2018/03/25/CryptDB代码分析5-底层加密库与加密层/"/>
+
+
+  <title> CryptDB代码分析5-底层加密库与加密层 | Life of yiwen </title>
+</head>
+
+<body itemscope itemtype="//schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="//schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">Life of yiwen</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books" rel="section">
+            
+            书单
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="//schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                CryptDB代码分析5-底层加密库与加密层
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2018-03-25T15:30:28+08:00" content="2018-03-25">
+              2018-03-25
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Cryptdb的设计与实现/" itemprop="url" rel="index">
+                    <span itemprop="name">Cryptdb的设计与实现</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2018/03/25/CryptDB代码分析5-底层加密库与加密层/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="2018/03/25/CryptDB代码分析5-底层加密库与加密层/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>CryptDB要进行数据加密，需要实现具体的加密算法，然后使用加密层类型来进行封装。如果用户想在其上实现新的功能，一方面需要实现加密算法，一方面要添加加密层以及其他相关辅助结构。本文介绍这两者之间的一些接口设计，方便大家基于现有代码做实验。</p>
+<a id="more"></a>
+<h3 id="加密算法"><a href="#加密算法" class="headerlink" title="加密算法"></a>加密算法</h3><p>CryptDB使用了AES，OPE，blowfish，Pailliar，Search算法，用到了openssl以及NTL库，相关代码全部位于<strong>crypto</strong>目录下。这里主要关注其对外的接口，忽略算法的实现步骤。要实现新的算法，需要使用类似的方法定义接口并做内部实现。</p>
+<h4 id="几种算法接口介绍"><a href="#几种算法接口介绍" class="headerlink" title="几种算法接口介绍"></a>几种算法接口介绍</h4><p><strong>blowfish</strong></p>
+<p>blowfish算法实现位于crypto/blowfish.hh中。相关代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">class blowfish &#123;</div><div class="line"> public:</div><div class="line">    blowfish(const std::string &amp;key) &#123;</div><div class="line">        BF_set_key(&amp;k, key.size(), (const uint8_t*) key.data());</div><div class="line">    &#125;</div><div class="line">    uint64_t encrypt(uint64_t pt) const &#123;</div><div class="line">        uint64_t ct;</div><div class="line">        block_encrypt(&amp;pt, &amp;ct);</div><div class="line">        return ct;</div><div class="line">    &#125;</div><div class="line">    uint64_t decrypt(uint64_t ct) const &#123;</div><div class="line">        uint64_t pt;</div><div class="line">        block_decrypt(&amp;ct, &amp;pt);</div><div class="line">        return pt;</div><div class="line">    &#125;</div><div class="line">    static const size_t blocksize = 8;</div><div class="line"> private:</div><div class="line">    BF_KEY k;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>可以看到，要使用blowfish，首先要有密钥key来完成初始化类，然后分别使用encrypt和decrypt函数来实现加解密。算法处理的数据类型是<strong>uint64_t。</strong></p>
+<p><strong>AES</strong></p>
+<p>CryptDB使用了两种AES的模式，其加解密相关的函数如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">string</div><div class="line">encrypt_AES_CBC(const string &amp;ptext, const AES_KEY * enckey, string salt, bool dopad);</div><div class="line">string</div><div class="line">decrypt_AES_CBC(const string &amp;ctext, const AES_KEY * deckey, string salt, bool dounpad);</div><div class="line">string</div><div class="line">encrypt_AES_CMC(const string &amp;ptext, const AES_KEY * enckey, bool dopad);</div><div class="line">string</div><div class="line">decrypt_AES_CMC(const string &amp;ctext, const AES_KEY * deckey, bool dopad);</div></pre></td></tr></table></figure>
+<p>可以看到，使用AES也是需要有密钥，通过encrypt和decrypt函数来完成加解密功能。处理的数据类型是<strong>string。</strong></p>
+<p><strong>Pailliar</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line">class Paillier_priv : public Paillier&#123;</div><div class="line">	NTL::ZZ decrypt(const NTL::ZZ &amp;ciphertext) const;</div><div class="line">	NTL::ZZ encrypt(const NTL::ZZ &amp;plaintext);</div><div class="line">	NTL::ZZ add(const NTL::ZZ &amp;c0, const NTL::ZZ &amp;c1) const;</div><div class="line">	...</div><div class="line">&#125;</div><div class="line">//使用举例</div><div class="line">Paillier_priv * sk;</div><div class="line">sk = new Paillier_priv();</div><div class="line">    ZZ pt0 = NTL::to_ZZ(1);</div><div class="line">    ZZ pt1 = NTL::to_ZZ(2);</div><div class="line"></div><div class="line">const ZZ enc0 = sk-&gt;encrypt(pt0);</div><div class="line">const ZZ dec0 = sk-&gt;decrypt(enc0);</div><div class="line">const ZZ enc1 = sk-&gt;encrypt(pt1);</div><div class="line">const ZZ dec1 = sk-&gt;decrypt(enc1);</div><div class="line">assert((pt0+pt1)==sk-&gt;decrypt(sk-&gt;add(enc0,enc1)));</div></pre></td></tr></table></figure>
+<p>上面给出了一个Pailliar使用的例子，可以看到，Pailliar算法提供了加解密以及密文相加得到密文的功能(同态加法)。处理过程使用了NTL库中的ZZ大整数类型。</p>
+<p><strong>Search</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">class search_priv : public search &#123;</div><div class="line"> public:</div><div class="line">    search_priv(const std::string &amp;key, size_t csize_arg = defsize)</div><div class="line">        : search(csize_arg), master_key(key) &#123;&#125;</div><div class="line"></div><div class="line">    std::vector&lt;std::string&gt;</div><div class="line">        transform(const std::vector&lt;std::string&gt; &amp;words);</div><div class="line">    std::string</div><div class="line">        wordkey(const std::string &amp;word);</div><div class="line"></div><div class="line"> private:</div><div class="line">    std::string</div><div class="line">        transform(const std::string &amp;word);</div><div class="line">    std::string master_key;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>对于search，首先需要对输入文字做划分，形成不同的关键字，对关键字进行加密，这是函数transform的作用。在进行match的时候，则是通过wordKey函数对关键字处理形成token，然后使用token调用match函数进行匹配，输出的结果是一个bool类型。</p>
+<p><strong>OPE</strong></p>
+<p>OPE算法对于字符串和整数，实现分别如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">class OPE &#123;</div><div class="line">    NTL::ZZ encrypt(const NTL::ZZ &amp;ptext);</div><div class="line">    NTL::ZZ decrypt(const NTL::ZZ &amp;ctext);</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">OPE ope(rawkey,8*plain_size,8*ciph_size);</div><div class="line">std::string ptext=&quot;helloworld&quot;;</div><div class="line">std::string ps = toUpperCase(ptext);</div><div class="line">if (ps.size() &lt; plain_size)</div><div class="line">    ps = ps + std::string(plain_size - ps.size(), 0);</div><div class="line">uint32_t pv = 0;</div><div class="line">for (uint i = 0; i &lt; plain_size; i++) &#123;</div><div class="line">    pv = pv * 256 + static_cast&lt;int&gt;(ps[i]);</div><div class="line">&#125;</div><div class="line">const ZZ enc = ope.encrypt(to_ZZ(pv));</div></pre></td></tr></table></figure>
+<p>可以看到，对于整数来说，提供了加解密函数。并且由于OPE的性质，密文有保序的性质。对于字符串，还是同样的类实现，只是加密的时候做了处理，使得字符串加密依然可以保序。</p>
+<h4 id="接口总结"><a href="#接口总结" class="headerlink" title="接口总结"></a>接口总结</h4><p>可以看到，在crypto目录中的代码提供了底层的加密功能，大部分类都提供了加解密函数encrypt和decrypt，如果算法有特定功能如同态加，则需要添加额外的函数。这些底层库没有使用MySQL内部数据类型。  <strong>所以，如果要自己添加新的算法，首先需要在crypto目录添加底层加密代码，对外提供encrypt，decrypt以及密文计算函数。</strong> 这部分代码可以独立编译运行以及测试。</p>
+<h3 id="加密层"><a href="#加密层" class="headerlink" title="加密层"></a>加密层</h3><p>首先，下面代码中用到的加密层以及洋葱都是枚举类型，其相关的定义如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div></pre></td><td class="code"><pre><div class="line">//位于util/onions.hh</div><div class="line">typedef enum onion &#123;</div><div class="line">    oDET,</div><div class="line">    oOPE,</div><div class="line">    oAGG,</div><div class="line">    oSWP,</div><div class="line">    oPLAIN,</div><div class="line">    oBESTEFFORT,</div><div class="line">    oASHE,</div><div class="line">    oINVALID,</div><div class="line">&#125; onion;</div><div class="line">enum class SECLEVEL &#123;</div><div class="line">    INVALID,</div><div class="line">    PLAINVAL,</div><div class="line">    OPEFOREIGN,</div><div class="line">    OPE,</div><div class="line">    DETJOIN,</div><div class="line">    DET,</div><div class="line">    SEARCH,</div><div class="line">    HOM,</div><div class="line">    ASHE,</div><div class="line">    RND,</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>有了这些枚举类型表示洋葱和加密层，接下来就需要具体的加密层的实现，以及一些辅助类来完成加密层的管理。</p>
+<h4 id="加密层实现"><a href="#加密层实现" class="headerlink" title="加密层实现"></a>加密层实现</h4><p>加密层相关的类主要实现了以下几个函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">class EncLayer : public LeafDBMeta &#123;</div><div class="line">    virtual Create_field *</div><div class="line">        newCreateField(const Create_field &amp;cf,</div><div class="line">                       const std::string &amp;anonname = &quot;&quot;) const = 0;</div><div class="line">    virtual Item *encrypt(const Item &amp;ptext, uint64_t IV) const = 0;</div><div class="line">    virtual Item *decrypt(const Item &amp;ctext, uint64_t IV) const = 0;</div><div class="line">    virtual Item *decryptUDF(Item * const col, Item * const ivcol = NULL)</div><div class="line">        const;</div><div class="line">    virtual std::string doSerialize() const = 0;</div><div class="line">    std::string serialize(const DBObject &amp;parent) const</div><div class="line">    &#123;</div><div class="line">        return serial_pack(this-&gt;level(), this-&gt;name(),</div><div class="line">                           this-&gt;doSerialize());</div><div class="line">    &#125;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>其类的继承结构之前已经介绍过，如下图：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classEncLayer.png" alt=""></p>
+<p>相关要点如下：</p>
+<ul>
+<li>serialize函数实现了加密层的序列化</li>
+<li>反序列化功能在LayerFactory管理类中实现，后面会介绍</li>
+<li>加解密函数encrypt和decrypt，是对上面介绍的crypto目录中的底层库的封装。由于这里处理的都是item类型，所以需要进行item类型和普通数据类型的互相转换</li>
+<li>decryptUDF用于返回一个UDF函数，做洋葱层次调整</li>
+<li>newCreateField用来处理加密带来的数据类型的变化。比如原来是整数类型，经过了Pailliar的加密，就变成了二进制字符串类型</li>
+</ul>
+<p>除了上面的通用函数，具体的加密层也会有自己特有的函数来实现密文计算功能。</p>
+<h4 id="加密层的实现举例"><a href="#加密层的实现举例" class="headerlink" title="加密层的实现举例"></a>加密层的实现举例</h4><p>我们以pailliar(HOM)为例，给出一个加密层实现的例子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">class HOM : public EncLayer &#123;</div><div class="line">public:</div><div class="line">    Create_field * newCreateField(const Create_field &amp;cf,</div><div class="line">                                  const std::string &amp;anonname = &quot;&quot;)</div><div class="line">        const;</div><div class="line">    Item *encrypt(const Item &amp;p, uint64_t IV) const;</div><div class="line">    Item * decrypt(const Item &amp;c, uint64_t IV) const;</div><div class="line">    </div><div class="line">    //expr is the expression (e.g. a field) over which to sum</div><div class="line">    Item *sumUDA(Item *const expr) const;</div><div class="line">    Item *sumUDF(Item *const i1, Item *const i2) const;</div><div class="line">protected:</div><div class="line">    std::string const seed_key;</div><div class="line">    static const uint nbits = 1024;</div><div class="line">    mutable Paillier_priv * sk;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line">Create_field *</div><div class="line">HOM::newCreateField(const Create_field &amp;cf,</div><div class="line">                    const std::string &amp;anonname) const&#123;</div><div class="line">    return arrayCreateFieldHelper(cf, 2*nbits/BITS_PER_BYTE,</div><div class="line">                                  MYSQL_TYPE_VARCHAR, anonname,</div><div class="line">                                  &amp;my_charset_bin);</div><div class="line">&#125;</div><div class="line">Item *</div><div class="line">HOM::encrypt(const Item &amp;ptext, uint64_t IV) const&#123;</div><div class="line">    const ZZ enc = sk-&gt;encrypt(ItemIntToZZ(ptext));</div><div class="line">    return ZZToItemStr(enc);</div><div class="line">&#125;</div><div class="line">Item *</div><div class="line">HOM::decrypt(const Item &amp;ctext, uint64_t IV) const &#123;</div><div class="line">    const ZZ enc = ItemStrToZZ(ctext);</div><div class="line">    const ZZ dec = sk-&gt;decrypt(enc);</div><div class="line">    return ZZToItemInt(dec);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>上面的简化代码展示了以下三点</p>
+<ul>
+<li>加密层类型是对crypto目录中的加密相关类的封装，比如这里的HOM封装了Paillier_priv类型</li>
+<li>encrypt与decrypt中，对item类型进行转换，使得其能够适配crypto目录中相关底层库进行加解密，之后又将结果转换为item类型返回</li>
+<li>sumUDF和sumUDA返回UDF，来实现MySQL Server端的同态加法操作(参考之前的文章以及原始论文中的介绍)，其相关UDF的实现位于udf/edb.cc中，关于UDF可以参考<a href="https://www.jianshu.com/p/10a980667819" target="_blank" rel="external">这里</a>，如果要自己写加密层，同样需要熟悉UDF的编写规则</li>
+<li>newCreateField函数返回了新的Create_field类型，来表示经过HOM加密以后的数据类型</li>
+</ul>
+<p>对于最后一点，我们继续看arrayCreateFieldHelper函数内部的具体实现，其简化的示例代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">Create_field*</div><div class="line">lowLevelcreateFieldHelper(const Create_field *f0)&#123;</div><div class="line">    f0-&gt;length = field_length;</div><div class="line">    f0-&gt;sql_type = type;</div><div class="line">    return f0;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>可以看到，Create_field中有lenghth和sql_type两个成员。一开始的时候，sql_type是MYSQL_TYPE_LONG，是表示整数类型。而这里的函数只要把sql_type变为MYSQL_TYPE_VARCHAR并设置对应的长度为256就行了。</p>
+<p>再举一个实际的例子，我们执行这样的SQL语句：<strong>CREATE TABLE student(id integer)</strong>，并且对id这列只设置HOM一个洋葱，在MySQL端执行<strong>SHOW CREATE TABLE</strong>以后看到的结果是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">//这里省略了额外的salt列</div><div class="line">CREATE TABLE `table_NRDDWIRZPY` (</div><div class="line">  `NSPUQRQGCEoADD` varbinary(256) DEFAULT NULL</div><div class="line">);</div></pre></td></tr></table></figure>
+<p>可以看到，原来的integer变成了varbinary(256)，这个变化就是通过newCreateField函数的Create_field机制实现的。我们在处理阶段修改了解析以后的LEX结构中的Create_field成员，所以在将LEX结构转化回字符串类型的SQL语句时，就可以得到包含正确数据类型的SQL语句。</p>
+<h4 id="加密层管理"><a href="#加密层管理" class="headerlink" title="加密层管理"></a>加密层管理</h4><p>加密层的创建依靠LayerFactory结构，不同的加密层有自己的factory。而这些factory又通过EncLayerFactory类来实现管理，其创建相关的代码以及类的结构如下：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/5/classLayerFactory.png" alt=""></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">class EncLayerFactory &#123;</div><div class="line">public:</div><div class="line">    static std::unique_ptr&lt;EncLayer&gt;</div><div class="line">        encLayer(onion o, SECLEVEL sl, const Create_field &amp;cf,</div><div class="line">                 const std::string &amp;key);</div><div class="line">    // creates EncLayer from its serialization </div><div class="line">    static std::unique_ptr&lt;EncLayer&gt;</div><div class="line">        deserializeLayer(unsigned int id, const std::string &amp;serial);</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div></pre></td><td class="code"><pre><div class="line">std::unique_ptr&lt;EncLayer&gt;</div><div class="line">EncLayerFactory::encLayer(onion o, SECLEVEL sl, const Create_field &amp;cf,</div><div class="line">                          const std::string &amp;key)</div><div class="line">&#123;</div><div class="line">    switch (sl) &#123;</div><div class="line">        case SECLEVEL::RND: &#123;return RNDFactory::create(cf, key);&#125;</div><div class="line">        case SECLEVEL::DET: &#123;return DETFactory::create(cf, key);&#125;</div><div class="line">        case SECLEVEL::DETJOIN: &#123;return DETJOINFactory::create(cf, key);&#125;</div><div class="line">        case SECLEVEL::OPE:&#123;return OPEFactory::create(cf, key);&#125;</div><div class="line">        case SECLEVEL::OPEFOREIGN:&#123;return OPEFOREIGNFactory::create(cf,key);&#125;</div><div class="line">        case SECLEVEL::HOM: &#123;return HOMFactory::create(cf, key);&#125;</div><div class="line">        case SECLEVEL::ASHE: &#123;return std::unique_ptr&lt;EncLayer&gt;(new ASHE(cf,key));&#125;</div><div class="line">        case SECLEVEL::SEARCH: &#123;</div><div class="line">            return std::unique_ptr&lt;EncLayer&gt;(new Search(cf, key));</div><div class="line">        &#125;</div><div class="line">        case SECLEVEL::PLAINVAL: &#123;</div><div class="line">            return std::unique_ptr&lt;EncLayer&gt;(new PlainText());</div><div class="line">        &#125;</div><div class="line">        default:&#123;&#125;</div><div class="line">    &#125;</div><div class="line">    FAIL_TextMessageError(&quot;unknown or unimplemented security level&quot;);</div><div class="line">&#125;</div><div class="line"></div><div class="line">std::unique_ptr&lt;EncLayer&gt;</div><div class="line">EncLayerFactory::deserializeLayer(unsigned int id,</div><div class="line">                                  const std::string &amp;serial)&#123;</div><div class="line">    assert(id);</div><div class="line">    const SerialLayer li = serial_unpack(serial);</div><div class="line">    switch (li.l) &#123;</div><div class="line">        case SECLEVEL::RND:</div><div class="line">            return RNDFactory::deserialize(id, li);</div><div class="line">        case SECLEVEL::DET:</div><div class="line">            return DETFactory::deserialize(id, li);</div><div class="line">        case SECLEVEL::DETJOIN:</div><div class="line">            return DETJOINFactory::deserialize(id, li);</div><div class="line">        case SECLEVEL::OPEFOREIGN:</div><div class="line">            return OPEFOREIGNFactory::deserialize(id,li);</div><div class="line">        case SECLEVEL::OPE:</div><div class="line">            return OPEFactory::deserialize(id, li);</div><div class="line">        case SECLEVEL::HOM:</div><div class="line">            return std::unique_ptr&lt;EncLayer&gt;(new HOM(id, serial));</div><div class="line">        case SECLEVEL::ASHE: return std::unique_ptr&lt;EncLayer&gt;(new ASHE(id, serial));</div><div class="line">        case SECLEVEL::SEARCH:</div><div class="line">            return std::unique_ptr&lt;EncLayer&gt;(new Search(id, serial));</div><div class="line">        case SECLEVEL::PLAINVAL:</div><div class="line">            return std::unique_ptr&lt;EncLayer&gt;(new PlainText(id));</div><div class="line">        default:&#123;&#125;</div><div class="line">    &#125;</div><div class="line">    FAIL_TextMessageError(&quot;unknown or unimplemented security level&quot;);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>从上面可以看到LayerFactory系列的类，主要提供了create和deserialize函数，前者用于在内存中直接创建加密层，后者用于对磁盘读取的数据做反序列化来创建加密层，<a href="https://yiwenshao.github.io/2018/03/19/CryptDB代码分析4-加密元数据读写/">上一篇文章</a>介绍的元数据读取过程中的反序列化函数，就来自这里的LayerFactory。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>通过本文我们可以发现，crypto目录实现了<strong>底层加密库</strong>，主要就是要对外提供encrypt，decrypt，以及密文计算函数。这个库操作的数据类型是普通的字符串和整数。这个模块和MySQL没有依赖，可以独立编译。</p>
+<p>CryptDB需要对MySQL的parser中的LEX结构中的Item类型做加密，底层加密库不能直接处理Item，所以在EncLayer中要做一个封装，这部分的内容主要实现在<strong>main/CryptoHandlers.cc</strong>，用于处理数据类型的转化。此外，EncLayer还需要处理序列化，UDF返回等功能。为了辅助加密层类型的使用，设计了LayerFactory系列的类，用于构造加密层类，这个构造分为普通构造和反序列化构造。这些factory类又通过EncLayerFactory类型来进行统一管理。通过这些机制，底层的加密库就和CryptDB的实现连接起来了，CryptDB会调用封装好的EncLayer，而不直接使用底层的加密库。</p>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><p><a href="https://github.com/yiwenshao/Practical-Cryptdb" target="_blank" rel="external">https://github.com/yiwenshao/Practical-Cryptdb</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/CryptDB/" rel="tag">#CryptDB</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/03/19/CryptDB代码分析4-加密元数据读写/" rel="next" title="CryptDB代码分析4-加密元数据读写">
+                <i class="fa fa-chevron-left"></i> CryptDB代码分析4-加密元数据读写
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+<div class="page-footer">
+    
+      <div id="eof" class="print-invisible">
+        <hr class="eof">
+      </div>
+
+      <div class="copyright" style="clear:both;">
+         <p><span>原始链接:</span><a href="/" title="CryptDB代码分析5-底层加密库与加密层">yiwenshao.github.io/2018/03/25/CryptDB代码分析5-底层加密库与加密层/</a></p>
+         <p><span>文章作者:</span><a href="/" title="访问 Yiwen Shao 的个人博客">Yiwen Shao</a></p>
+         <p><span>许可协议:</span><i class="fa fa-creative-commons"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/" title="Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)">Attribution-NonCommercial 4.0</a></p>
+         <p><span>转载请保留以上信息, 谢谢!</span></p>
+      </div>
+    
+
+    
+
+  </div>
+
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="2018/03/25/CryptDB代码分析5-底层加密库与加密层/"
+           data-title="CryptDB代码分析5-底层加密库与加密层" data-url="yiwenshao.github.io/2018/03/25/CryptDB代码分析5-底层加密库与加密层/">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="//schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="Yiwen Shao" />
+          <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+          <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">20</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">9</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">21</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#加密算法"><span class="nav-number">1.</span> <span class="nav-text">加密算法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#几种算法接口介绍"><span class="nav-number">1.1.</span> <span class="nav-text">几种算法接口介绍</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#接口总结"><span class="nav-number">1.2.</span> <span class="nav-text">接口总结</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#加密层"><span class="nav-number">2.</span> <span class="nav-text">加密层</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#加密层实现"><span class="nav-number">2.1.</span> <span class="nav-text">加密层实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#加密层的实现举例"><span class="nav-number">2.2.</span> <span class="nav-text">加密层的实现举例</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#加密层管理"><span class="nav-number">2.3.</span> <span class="nav-text">加密层管理</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考文献"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2018</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.2"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.2"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.2"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.2"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"casualet"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+    <script src="/lib/ua-parser-js/dist/ua-parser.min.js?v=0.7.9"></script>
+    <script src="/js/src/hook-duoshuo.js"></script>
+  
+
+
+
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+</body>
+</html>
