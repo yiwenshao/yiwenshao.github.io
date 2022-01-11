@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":true,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="linux socket编程中经常用到各种类型的地址, 最近在一些开源代码中经常见到,  它们是进行socket编程的基础, 本文对常见的地址结构进行简单整理, 并在附录中对某些函数给出了helloworld式的测试代码, 方便查询.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="linux网络编程系列-地址结构(1)">
+<meta property="og:url" content="https://yiwenshao.github.io/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="linux socket编程中经常用到各种类型的地址, 最近在一些开源代码中经常见到,  它们是进行socket编程的基础, 本文对常见的地址结构进行简单整理, 并在附录中对某些函数给出了helloworld式的测试代码, 方便查询.">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-12-18T10:28:59.000Z">
+<meta property="article:modified_time" content="2016-12-18T10:28:59.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="网络编程">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/","path":"2016/12/18/linux网络编程系列-地址结构-1/","title":"linux网络编程系列-地址结构(1)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>linux网络编程系列-地址结构(1) | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#IPV4%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">IPV4地址结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#in-addr"><span class="nav-number">1.1.</span> <span class="nav-text">in_addr</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#sockaddr-in"><span class="nav-number">1.2.</span> <span class="nav-text">sockaddr_in</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#sockaddr"><span class="nav-number">1.3.</span> <span class="nav-text">sockaddr</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IPV6%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">IPV6地址结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#in6-addr"><span class="nav-number">2.1.</span> <span class="nav-text">in6_addr</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#sockaddr-in6"><span class="nav-number">2.2.</span> <span class="nav-text">sockaddr_in6</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#sockaddr-storage"><span class="nav-number">2.3.</span> <span class="nav-text">sockaddr_storage</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#addrinfo"><span class="nav-number">2.4.</span> <span class="nav-text">addrinfo</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A1%A5%E5%85%85%E8%AF%B4%E6%98%8E"><span class="nav-number">3.</span> <span class="nav-text">补充说明</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B3%E4%BA%8E%E5%AD%97%E8%8A%82%E5%BA%8F"><span class="nav-number">3.1.</span> <span class="nav-text">关于字节序</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%99%84%E5%BD%95%E7%A8%8B%E5%BA%8F"><span class="nav-number">4.</span> <span class="nav-text">附录程序</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#gethostbyname"><span class="nav-number">4.1.</span> <span class="nav-text">gethostbyname</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#getservbyname"><span class="nav-number">4.2.</span> <span class="nav-text">getservbyname</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#getaddrinfo"><span class="nav-number">4.3.</span> <span class="nav-text">getaddrinfo</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          linux网络编程系列-地址结构(1)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-12-18 18:28:59" itemprop="dateCreated datePublished" datetime="2016-12-18T18:28:59+08:00">2016-12-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/default/" itemprop="url" rel="index"><span itemprop="name">default</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>linux socket编程中经常用到各种类型的地址, 最近在一些开源代码中经常见到,  它们是进行socket编程的基础, 本文对常见的地址结构进行简单整理, 并在附录中对某些函数给出了helloworld式的测试代码, 方便查询.</p>
+<span id="more"></span>
+<h3 id="IPV4地址结构"><a href="#IPV4地址结构" class="headerlink" title="IPV4地址结构"></a>IPV4地址结构</h3><h4 id="in-addr"><a href="#in-addr" class="headerlink" title="in_addr"></a>in_addr</h4><p>这个结构内部以网络字节序的32位无符号整数表示的ipv4地址, 在后续介绍的地址结构中会用到这个结构. 之所以一个整数也要放在一个结构体中来代表地址, 是历史原因. 一开始这个结构内部不仅仅是一个整数, 后来演化成只有一个整数, 但是这个结构体保留了. 所以要引用一个IPV4地址, 可以传该结构体, 也可以传结构体中的整数, 这需要根据具体接口的要求正确使用.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">in_addr</span> &#123;</span> </span><br><span class="line"><span class="keyword">in_addr_t</span> s_addr; <span class="comment">/* 32-bit IPv4 address */</span> </span><br><span class="line">                 <span class="comment">/* network byte ordered */</span> </span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="sockaddr-in"><a href="#sockaddr-in" class="headerlink" title="sockaddr_in"></a>sockaddr_in</h4><p>这个是一个常见的IPV4地址结构, 注释中给出了各个字段的含义与大小. 其中sin_family, sin_port, 以及sin_addr是POSIX规范要求的三个字段, 其他的为额外添加字段. 在POSIX类型中, in_addr_t必须至少是一个32位无符号整数, in_port_t至少是一个16位无符号整数类型, sa_family_t则可以是任意无符合整数类型. </p>
+<p>可以看到, POSIX定义了规范定义了各个结构必须有的字段, 以及字段的大小. </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> &#123;</span></span><br><span class="line"> <span class="keyword">uint8_t</span> sin_len; <span class="comment">/* length of structure (16) */</span></span><br><span class="line"> <span class="keyword">sa_family_t</span> sin_family; <span class="comment">/* AF_INET */</span></span><br><span class="line"> <span class="keyword">in_port_t</span> sin_port; <span class="comment">/* 16-bit TCP or UDP port number */</span></span><br><span class="line"> <span class="comment">/* network byte ordered */</span></span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">in_addr</span> <span class="title">sin_addr</span>;</span> <span class="comment">/* 32-bit IPv4 address */</span></span><br><span class="line"> <span class="comment">/* network byte ordered */</span></span><br><span class="line"> <span class="keyword">char</span> sin_zero[<span class="number">8</span>]; <span class="comment">/* unused */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="sockaddr"><a href="#sockaddr" class="headerlink" title="sockaddr"></a>sockaddr</h4><p>通用套接字结构, 起来void*的作用, 在定义这个结构之前, ANSI C还没有出来, 还没有void*, 这个结构是为了能够处理任意格式的地址参数, 通过指针的方式来传递, 对于socket编程而言, 地址结构作为参数传递的时候一般是通过指针进行的, 而不是直接传递结构体. 结构体在本机内部使用, 而不会在机器直接传递.有了这个结构体, 在接口编写的时候, 要求的参数是struct sockaddr*类型, 到了函数内部通过类型转换变成具体的地址结构类型.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr</span> &#123;</span></span><br><span class="line"> <span class="keyword">uint8_t</span> sa_len;</span><br><span class="line"> <span class="keyword">sa_family_t</span> sa_family; <span class="comment">/* address family: AF_xxx value */</span></span><br><span class="line"> <span class="keyword">char</span> sa_data[<span class="number">14</span>]; <span class="comment">/* protocol-specific address */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="IPV6地址结构"><a href="#IPV6地址结构" class="headerlink" title="IPV6地址结构"></a>IPV6地址结构</h3><h4 id="in6-addr"><a href="#in6-addr" class="headerlink" title="in6_addr"></a>in6_addr</h4><p>这个结构使用128bit的空间直接存储一个ipv6的地址. </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">in6_addr</span> &#123;</span></span><br><span class="line"> <span class="keyword">uint8_t</span> s6_addr[<span class="number">16</span>]; <span class="comment">/* 128-bit IPv6 address */</span></span><br><span class="line"> <span class="comment">/* network byte ordered */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="sockaddr-in6"><a href="#sockaddr-in6" class="headerlink" title="sockaddr_in6"></a>sockaddr_in6</h4><p>实际使用的IPV6地址.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> SIN6_LEN <span class="comment">/* required for compile-time tests */</span></span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in6</span> &#123;</span></span><br><span class="line"> <span class="keyword">uint8_t</span> sin6_len; <span class="comment">/* length of this struct (28) */</span></span><br><span class="line"> <span class="keyword">sa_family_t</span> sin6_family; <span class="comment">/* AF_INET6 */</span></span><br><span class="line"> <span class="keyword">in_port_t</span> sin6_port; <span class="comment">/* transport layer port# */</span></span><br><span class="line"> <span class="comment">/* network byte ordered */</span></span><br><span class="line"> <span class="keyword">uint32_t</span> sin6_flowinfo; <span class="comment">/* flow information, undefined */</span></span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">in6_addr</span> <span class="title">sin6_addr</span>;</span> <span class="comment">/* IPv6 address */</span></span><br><span class="line"> <span class="comment">/* network byte ordered */</span></span><br><span class="line"> <span class="keyword">uint32_t</span> sin6_scope_id; <span class="comment">/* set of interfaces for a scope */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h4 id="sockaddr-storage"><a href="#sockaddr-storage" class="headerlink" title="sockaddr_storage"></a>sockaddr_storage</h4><p>这个结构和sockaddr的区别在于, 足够大, 能够存储任何系统支持的地址结构,且满足任意的对齐要求, 使用的时候, 需要强制类型转化到特定需要的地址结构. 也是通过传指针的方式来使用的. </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_storage</span> &#123;</span></span><br><span class="line"> <span class="keyword">uint8_t</span> ss_len; <span class="comment">/* length of this struct (implementation dependent) */</span></span><br><span class="line"> <span class="keyword">sa_family_t</span> ss_family; <span class="comment">/* address family: AF_xxx value */</span></span><br><span class="line"> <span class="comment">/* implementation-dependent elements to provide:</span></span><br><span class="line"><span class="comment"> * a) alignment sufficient to fulfill the alignment requirements of</span></span><br><span class="line"><span class="comment"> * all socket address types that the system supports.</span></span><br><span class="line"><span class="comment"> * b) enough storage to hold any type of socket address that the</span></span><br><span class="line"><span class="comment"> * system supports.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h4 id="addrinfo"><a href="#addrinfo" class="headerlink" title="addrinfo"></a>addrinfo</h4><p>这个结构可以通过函数getaddrinfo来获取,一方面可以作为getaddrinfo函数调用时候的过滤器, 另一方面可以装getaddrinfo返回的结果(通过参数列表中的指针返回). 可以看到, 其是一个链表结构, 其结构成员如下.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">addrinfo</span> &#123;</span></span><br><span class="line">    <span class="keyword">int</span> ai_flags; <span class="comment">// AI_PASSIVE, AI_CANONNAME, etc.</span></span><br><span class="line">    <span class="keyword">int</span> ai_family; <span class="comment">// AF_INET, AF_INET6, AF_UNSPEC</span></span><br><span class="line">    <span class="keyword">int</span> ai_socktype; <span class="comment">// SOCK_STREAM, SOCK_DGRAM</span></span><br><span class="line">    <span class="keyword">int</span> ai_protocol; <span class="comment">// use 0 for &quot;any&quot;</span></span><br><span class="line">    <span class="keyword">size_t</span> ai_addrlen; <span class="comment">// size of ai_addr in bytes</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr</span> *<span class="title">ai_addr</span>;</span> <span class="comment">// struct sockaddr_in or _in6</span></span><br><span class="line">    <span class="keyword">char</span> *ai_canonname; <span class="comment">// full canonical hostname</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">addrinfo</span> *<span class="title">ai_next</span>;</span> <span class="comment">// linked list, next node</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>我们接下来通过getaddrinfo函数来了解这个结构.</p>
+<p>首先, 该函数结合了gethostbyname(3) and getservbyname(3)两个函数的功能,也就是说, 该函数支持从名字到地址, 以及从名字到服务端口的转换, 其支持IPV6并且是可重入(reentrant)的.而前两个函数只支持IPV4且不可重入.</p>
+<p>这里补充介绍两个过时的函数:</p>
+<ul>
+<li><p>gethostbyname 把主机名字映射成Ipv4地址, 返回地址通过hostent结构体来获取, 是一个已经废除的函数, 其函数头如下:<br>struct hostent *gethostbyname(const char *name);</p>
+</li>
+<li><p>getserverbyname 可以获取服务名字到地址的映射.这个映射通常保存在/etc/services中. 常见的服务如mysql, ftp等.通过名字可以知道这个服务的总体信息</p>
+</li>
+</ul>
+<p>更多关于上面这两个函数的使用, 可以看附录中的测试代码. </p>
+<p>我们开始介绍getaddrinfo函数:</p>
+<ul>
+<li><p>getaddrinfo</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">int getaddrinfo(const char *hostname, const char *service,</span><br><span class="line">                       const struct addrinfo *hints,</span><br><span class="line">                       struct addrinfo **res);</span><br></pre></td></tr></table></figure>
+<p>我们先看参数列表, hostname代表主机名, 也可以传字符串类型的ipv4或者ipv6地址, hints用于对返回什么类型的结果做一个提示(过滤),比如限制只查找IPV4或者只查找IPV6等, 然后res是一个返回结果. 从上面的参数列表, 我们可以看出这个函数的一般使用使用策略:</p>
+</li>
+<li><p>该函数的参数service运行使用字符串的服务名和字符串类型的端口名, 比如”mysql”或者”3307”, 这样我们通过指定参数, 就可以获得对应的addrinfo结构, 这个结构中的struct sockaddr *ai_addr可以被很多socket相关的接口使用. 该参数可以是NULL.</p>
+</li>
+<li><p>该函数的hostname参数, 支持字符串结构的地址或者主机名, 比如”<a target="_blank" rel="noopener" href="http://www.baidu.com&quot;或者&quot;127.0.0.1&quot;/">www.baidu.com&quot;或者&quot;127.0.0.1&quot;</a>, 然后也会返回addrinfo结构. 该参数可以是NULL.</p>
+</li>
+<li><p>和gethostbyname以及getservbyname类似, getaddrinfo函数也支持对查询操作进行控制(过滤), 这通过传入hints参数来完成, 我们通过hints参数, 可以对需要什么类型的结果做比较细的定制.这个参数也可以是NULL</p>
+</li>
+<li><p>最后的res用于接收查询的结果. 改函数返回值是0代表执行成功, 否则代表执行失败.</p>
+</li>
+</ul>
+<p>从addrinfo的各个字段的作用来解释这个过滤的机制:</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>可能的值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>int ai_family</td>
+<td>AF_INET, AF_INET6, AF_UNSPEC, 分别表示返回的地址限制IPV4,IPV6或者不限制</td>
+</tr>
+<tr>
+<td>int ai_socktype</td>
+<td>SOCK_STREAM, SOCK_DGRAM,0 分别表示返回地址是流模式,数据包模式,以及任意socket类型</td>
+</tr>
+<tr>
+<td>int ai_protocol</td>
+<td>一般使用0, 表示返回地址可以是任意协议</td>
+</tr>
+<tr>
+<td>int ai_flags</td>
+<td>当这个标志是AI_PASSIVE且hostname是NULL的时候, 返回的地址可以用于server端,用于bind和accept, 并且  接受指向本机任意地址的连接.  如果AI_PASSIVE没有被设置, 那么这个返回的地址可以用于client端, 用于connect和sendto等函数, 此时如果hostname是NULL, 则默认是回环地址(127.0.0.1). 如果设置了AI_CANONNAME, 则返回的链表中的第一个节点指向一个名字.</td>
+</tr>
+<tr>
+<td>socklen_t ai_addrlen</td>
+<td>设置为0</td>
+</tr>
+<tr>
+<td>struct sockaddr *ai_addr</td>
+<td>设置为NULL</td>
+</tr>
+<tr>
+<td>char *ai_canonname</td>
+<td>设置为NULL</td>
+</tr>
+<tr>
+<td>struct addrinfo *ai_next</td>
+<td>设置为NULL</td>
+</tr>
+</tbody></table>
+<p>可以看到, addrinfo有两个作用, 其中部分的成员用于过滤返回类型, 还有部分成员用于装返回地址.对于getaddrinfo函数, 其作用是, 分配链表空间, 并在找到所有和提供的service以及hostname匹配项目构造addrinfo, 并且根据hints中的选项做进一步的筛选, 然后通过参数列表中的res返回一个链表头,链表中的每个节点可以看出对之前介绍的地址类型的封装. 函数返回多个addrinfo结构可能有如下原因:</p>
+<ul>
+<li>多个网卡</li>
+<li>单个网卡支持多种协议AF_INET and AF_INET6</li>
+<li>同一个服务有基于 SOCK_DGRAM的, 也有基于 SOCK_STREAM的</li>
+</ul>
+<p>需要注意的是, 返回的res结构使用完毕以后, 需要通过freeaddrinfo函数使用资源.</p>
+<h3 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h3><h4 id="关于字节序"><a href="#关于字节序" class="headerlink" title="关于字节序"></a>关于字节序</h4><p>上面说到网络字节序的问题, 所谓字节序, 就是一个多字节的变量在内存中放置的顺序. 比如一个int占有32个字节, 这个类型的存放方式有两种, 一种是低位存低地址, 叫little endian, 一种是低位存高地址, 叫big endian. 不同的机子对于单字节数据的读取是一致的, 因为它们都以8个bits作为一个byte, 但是对于多字节的数据, 字节序在不同的机子上并没有约定. 对于一个四字节的整数, big endian认为第一个字节位于地址最大的位置, little endian认为第一个字节位于地址最小的位置, 所以网络传输的时候, 需要规定网络字节序,现行的规定是big endian(传输是由低地址到高地址传). 由于不同机器的字节序可能不一样, 所以在进行网络传输的时候, 需要使用ntohxx,htonxx系列的函数进行字节序的转换.在ubuntu下, 可以使用命令<strong>lscpu</strong> 来查看自己的机器是哪种字节序.</p>
+<h3 id="附录程序"><a href="#附录程序" class="headerlink" title="附录程序"></a>附录程序</h3><h4 id="gethostbyname"><a href="#gethostbyname" class="headerlink" title="gethostbyname"></a>gethostbyname</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line">void printHostent(struct hostent *h)&#123;</span><br><span class="line">    //输出canonical 名字</span><br><span class="line">    printf(&quot;%s\n&quot;,h-&gt;h_name);</span><br><span class="line">    switch(h-&gt;h_addrtype)&#123;</span><br><span class="line">        case AF_INET:&#123;</span><br><span class="line">            //链表的形式给出一系列的IP地址</span><br><span class="line">            char **pptr = h-&gt;h_addr_list;</span><br><span class="line">            for(;*pptr!=NULL;pptr++)&#123;</span><br><span class="line">                printf(&quot;%d.%d.%d.%d\n&quot;,(int)pptr[0][0],pptr[0][1],pptr[0][2],pptr[0][3]);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        default:</span><br><span class="line">            break;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main()&#123;</span><br><span class="line">    struct hostent *h;</span><br><span class="line">    //这里参数是主机名</span><br><span class="line">    h=gethostbyname(&quot;www.baidu.com&quot;);</span><br><span class="line">    printHostent(h);</span><br><span class="line"></span><br><span class="line">    h=gethostbyname(&quot;localhost&quot;);</span><br><span class="line">    printHostent(h);</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="getservbyname"><a href="#getservbyname" class="headerlink" title="getservbyname"></a>getservbyname</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">//struct servent &#123;</span><br><span class="line">//    char  *s_name;       /* official service name */</span><br><span class="line">//    char **s_aliases;    /* alias list */</span><br><span class="line">//    int    s_port;       /* port number */</span><br><span class="line">//    char  *s_proto;      /* protocol to use */</span><br><span class="line">//&#125;</span><br><span class="line"></span><br><span class="line">void printserver(struct servent * s)&#123;</span><br><span class="line">    if(s==NULL) return;</span><br><span class="line">    printf(&quot;port=%d\n&quot;,ntohs(s-&gt;s_port));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main()&#123;</span><br><span class="line">    struct servent * s;</span><br><span class="line">    s = getservbyname(&quot;domain&quot;,&quot;udp&quot;);</span><br><span class="line">    printserver(s);</span><br><span class="line">    s = getservbyname(&quot;ftp&quot;,&quot;tcp&quot;);</span><br><span class="line">    printserver(s);</span><br><span class="line">    s = getservbyname(&quot;mysql&quot;,NULL);</span><br><span class="line">    printserver(s);</span><br><span class="line"></span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="getaddrinfo"><a href="#getaddrinfo" class="headerlink" title="getaddrinfo"></a>getaddrinfo</h4><p>下面程序实现了从服务到ip地址的转换, 以及从域名到ip地址的转换.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;sys/types.h&gt;</span><br><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;stdlib.h&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;string.h&gt;</span><br><span class="line">#include &lt;sys/socket.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line">#include &lt;arpa/inet.h&gt;</span><br><span class="line"></span><br><span class="line">#define BUF_SIZE 500</span><br><span class="line"></span><br><span class="line">void printInfo(struct addrinfo *result)&#123;</span><br><span class="line">    struct addrinfo *rp;</span><br><span class="line">    char buf[BUF_SIZE];</span><br><span class="line">    int i=0;</span><br><span class="line">    for (rp = result; rp != NULL; rp = rp-&gt;ai_next) &#123;</span><br><span class="line">       struct sockaddr_in *in = (struct sockaddr_in*)(rp-&gt;ai_addr);</span><br><span class="line">       printf(&quot;port = %d :&quot;,ntohs(in-&gt;sin_port));</span><br><span class="line">       inet_ntop(AF_INET, &amp;(in-&gt;sin_addr), buf, INET_ADDRSTRLEN);</span><br><span class="line">       printf(&quot;ip = %s &quot;,buf);</span><br><span class="line">       printf(&quot;name = %s \n&quot;,rp-&gt;ai_canonname);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">int main()&#123;</span><br><span class="line">   struct addrinfo hints;</span><br><span class="line">   struct addrinfo *result;</span><br><span class="line">   int sfd, s;</span><br><span class="line">   struct sockaddr_storage peer_addr;</span><br><span class="line">   socklen_t peer_addr_len;</span><br><span class="line">   ssize_t nread;</span><br><span class="line"></span><br><span class="line">   //初始化hints, 通过hints来对查找进行提示.</span><br><span class="line">   memset(&amp;hints, 0, sizeof(struct addrinfo));</span><br><span class="line">   //同时运行IPV4和IPV6</span><br><span class="line">   hints.ai_family = AF_UNSPEC;</span><br><span class="line">   hints.ai_socktype = 0;</span><br><span class="line">   hints.ai_flags = AI_PASSIVE|AI_CANONNAME;</span><br><span class="line">   //任意的协议族</span><br><span class="line">   hints.ai_protocol = 0;</span><br><span class="line">   hints.ai_canonname = NULL;</span><br><span class="line">   hints.ai_addr = NULL;</span><br><span class="line">   hints.ai_next = NULL;</span><br><span class="line"></span><br><span class="line">   s = getaddrinfo(&quot;localhost&quot;, &quot;mysql&quot;, &amp;hints, &amp;result);</span><br><span class="line">   if (s != 0) &#123;</span><br><span class="line">       fprintf(stderr, &quot;getaddrinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line">    printInfo(result);</span><br><span class="line"></span><br><span class="line">   s = getaddrinfo(&quot;localhost&quot;, &quot;ftp&quot;, &amp;hints, &amp;result);</span><br><span class="line">   if (s != 0) &#123;</span><br><span class="line">       fprintf(stderr, &quot;getaddrinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line">   printInfo(result);</span><br><span class="line"></span><br><span class="line">   s = getaddrinfo(&quot;www.baidu.com&quot;, NULL, &amp;hints, &amp;result);</span><br><span class="line">   if (s != 0) &#123;</span><br><span class="line">       fprintf(stderr, &quot;getaddrinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line">   printInfo(result);</span><br><span class="line"></span><br><span class="line">   freeaddrinfo(result);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>来自man文档的client/server程序例子:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br></pre></td><td class="code"><pre><span class="line">//server端</span><br><span class="line">#include &lt;sys/types.h&gt;</span><br><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;stdlib.h&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;string.h&gt;</span><br><span class="line">#include &lt;sys/socket.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line"></span><br><span class="line">#define BUF_SIZE 500</span><br><span class="line"></span><br><span class="line">int</span><br><span class="line">main(int argc, char *argv[])&#123;</span><br><span class="line">   struct addrinfo hints;</span><br><span class="line">   struct addrinfo *result, *rp;</span><br><span class="line">   int sfd, s;</span><br><span class="line">   struct sockaddr_storage peer_addr;</span><br><span class="line">   socklen_t peer_addr_len;</span><br><span class="line">   ssize_t nread;</span><br><span class="line">   char buf[BUF_SIZE];</span><br><span class="line"></span><br><span class="line">   if (argc != 2) &#123;</span><br><span class="line">       fprintf(stderr, &quot;Usage: %s port\n&quot;, argv[0]);</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   memset(&amp;hints, 0, sizeof(struct addrinfo));</span><br><span class="line">   hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */</span><br><span class="line">   hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */</span><br><span class="line">   hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */</span><br><span class="line">   hints.ai_protocol = 0;          /* Any protocol */</span><br><span class="line">   hints.ai_canonname = NULL;</span><br><span class="line">   hints.ai_addr = NULL;</span><br><span class="line">   hints.ai_next = NULL;</span><br><span class="line"></span><br><span class="line">   s = getaddrinfo(NULL, argv[1], &amp;hints, &amp;result);</span><br><span class="line">   if (s != 0) &#123;</span><br><span class="line">       fprintf(stderr, &quot;getaddrinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   /* getaddrinfo() returns a list of address structures.</span><br><span class="line">      Try each address until we successfully bind(2).</span><br><span class="line">      If socket(2) (or bind(2)) fails, we (close the socket</span><br><span class="line">      and) try the next address. */</span><br><span class="line"></span><br><span class="line">   for (rp = result; rp != NULL; rp = rp-&gt;ai_next) &#123;</span><br><span class="line">       sfd = socket(rp-&gt;ai_family, rp-&gt;ai_socktype,</span><br><span class="line">               rp-&gt;ai_protocol);</span><br><span class="line">       if (sfd == -1)</span><br><span class="line">           continue;</span><br><span class="line"></span><br><span class="line">       if (bind(sfd, rp-&gt;ai_addr, rp-&gt;ai_addrlen) == 0)</span><br><span class="line">           break;                  /* Success */</span><br><span class="line"></span><br><span class="line">       close(sfd);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   if (rp == NULL) &#123;               /* No address succeeded */</span><br><span class="line">       fprintf(stderr, &quot;Could not bind\n&quot;);</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   freeaddrinfo(result);           /* No longer needed */</span><br><span class="line"></span><br><span class="line">   /* Read datagrams and echo them back to sender */</span><br><span class="line"></span><br><span class="line">   for (;;) &#123;</span><br><span class="line">       peer_addr_len = sizeof(struct sockaddr_storage);</span><br><span class="line">       nread = recvfrom(sfd, buf, BUF_SIZE, 0,</span><br><span class="line">               (struct sockaddr *) &amp;peer_addr, &amp;peer_addr_len);</span><br><span class="line">       if (nread == -1)</span><br><span class="line">           continue;               /* Ignore failed request */</span><br><span class="line"></span><br><span class="line">       char host[NI_MAXHOST], service[NI_MAXSERV];</span><br><span class="line"></span><br><span class="line">       s = getnameinfo((struct sockaddr *) &amp;peer_addr,</span><br><span class="line">                       peer_addr_len, host, NI_MAXHOST,</span><br><span class="line">                       service, NI_MAXSERV, NI_NUMERICSERV);</span><br><span class="line">      if (s == 0)</span><br><span class="line">           printf(&quot;Received %zd bytes from %s:%s\n&quot;,</span><br><span class="line">                   nread, host, service);</span><br><span class="line">       else</span><br><span class="line">           fprintf(stderr, &quot;getnameinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line"></span><br><span class="line">       if (sendto(sfd, buf, nread, 0,</span><br><span class="line">                   (struct sockaddr *) &amp;peer_addr,</span><br><span class="line">                   peer_addr_len) != nread)</span><br><span class="line">           fprintf(stderr, &quot;Error sending response\n&quot;);</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br></pre></td><td class="code"><pre><span class="line">//client端</span><br><span class="line">#include &lt;sys/types.h&gt;</span><br><span class="line">#include &lt;sys/socket.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;stdlib.h&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;string.h&gt;</span><br><span class="line"></span><br><span class="line">#define BUF_SIZE 500</span><br><span class="line"></span><br><span class="line">int</span><br><span class="line">main(int argc, char *argv[])</span><br><span class="line">&#123;</span><br><span class="line">   struct addrinfo hints;</span><br><span class="line">   struct addrinfo *result, *rp;</span><br><span class="line">   int sfd, s, j;</span><br><span class="line">   size_t len;</span><br><span class="line">   ssize_t nread;</span><br><span class="line">   char buf[BUF_SIZE];</span><br><span class="line"></span><br><span class="line">   if (argc &lt; 3) &#123;</span><br><span class="line">       fprintf(stderr, &quot;Usage: %s host port msg...\n&quot;, argv[0]);</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   /* Obtain address(es) matching host/port */</span><br><span class="line"></span><br><span class="line">   memset(&amp;hints, 0, sizeof(struct addrinfo));</span><br><span class="line">   hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */</span><br><span class="line">   hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */</span><br><span class="line">   hints.ai_flags = 0;</span><br><span class="line">   hints.ai_protocol = 0;          /* Any protocol */</span><br><span class="line"></span><br><span class="line">   s = getaddrinfo(argv[1], argv[2], &amp;hints, &amp;result);</span><br><span class="line">   if (s != 0) &#123;</span><br><span class="line">       fprintf(stderr, &quot;getaddrinfo: %s\n&quot;, gai_strerror(s));</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   /* getaddrinfo() returns a list of address structures.</span><br><span class="line">      Try each address until we successfully connect(2).</span><br><span class="line">      If socket(2) (or connect(2)) fails, we (close the socket</span><br><span class="line">      and) try the next address. */</span><br><span class="line"></span><br><span class="line">   for (rp = result; rp != NULL; rp = rp-&gt;ai_next) &#123;</span><br><span class="line">       sfd = socket(rp-&gt;ai_family, rp-&gt;ai_socktype,</span><br><span class="line">                    rp-&gt;ai_protocol);</span><br><span class="line">       if (sfd == -1)</span><br><span class="line">           continue;</span><br><span class="line"></span><br><span class="line">       if (connect(sfd, rp-&gt;ai_addr, rp-&gt;ai_addrlen) != -1)</span><br><span class="line">           break;                  /* Success */</span><br><span class="line"></span><br><span class="line">       close(sfd);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   if (rp == NULL) &#123;               /* No address succeeded */</span><br><span class="line">       fprintf(stderr, &quot;Could not connect\n&quot;);</span><br><span class="line">       exit(EXIT_FAILURE);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   freeaddrinfo(result);           /* No longer needed */</span><br><span class="line"></span><br><span class="line">   /* Send remaining command-line arguments as separate</span><br><span class="line">      datagrams, and read responses from server */</span><br><span class="line"></span><br><span class="line">   for (j = 3; j &lt; argc; j++) &#123;</span><br><span class="line">       len = strlen(argv[j]) + 1;</span><br><span class="line">               /* +1 for terminating null byte */</span><br><span class="line"></span><br><span class="line">       if (len + 1 &gt; BUF_SIZE) &#123;</span><br><span class="line">           fprintf(stderr,</span><br><span class="line">                   &quot;Ignoring long message in argument %d\n&quot;, j);</span><br><span class="line">           continue;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       if (write(sfd, argv[j], len) != len) &#123;</span><br><span class="line">           fprintf(stderr, &quot;partial/failed write\n&quot;);</span><br><span class="line">           exit(EXIT_FAILURE);</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       nread = read(sfd, buf, BUF_SIZE);</span><br><span class="line">       if (nread == -1) &#123;</span><br><span class="line">           perror(&quot;read&quot;);</span><br><span class="line">           exit(EXIT_FAILURE);</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       printf(&quot;Received %zd bytes: %s\n&quot;, nread, buf);</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   exit(EXIT_SUCCESS);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>参考文献<br><a href="">[1] http://www.informit.com/articles/article.aspx?p=169505&amp;seqNum=2</a><br><a href="">[2] Unix network programming, volume 1, 3rd edition, chapter 3,11</a><br><a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man3/getaddrinfo.3.html">[3] man 3 getaddrinfo: http://man7.org/linux/man-pages/man3/getaddrinfo.3.html</a><br><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Getaddrinfo">[4] https://en.wikipedia.org/wiki/Getaddrinfo</a><br><a target="_blank" rel="noopener" href="https://betterexplained.com/articles/understanding-big-and-little-endian-byte-order/">[5] https://betterexplained.com/articles/understanding-big-and-little-endian-byte-order/</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag"># 网络编程</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/" rel="prev" title="lua与Cpp传递参数接口介绍">
+                  <i class="fa fa-chevron-left"></i> lua与Cpp传递参数接口介绍
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016/12/25/cscope%E5%BF%AB%E9%80%9F%E6%95%99%E7%A8%8B/" rel="next" title="cscope快速教程">
+                  cscope快速教程 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+</body>
+</html>

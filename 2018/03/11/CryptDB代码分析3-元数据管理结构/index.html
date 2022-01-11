@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":true,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="本文是CryptDB代码分析的第三篇。在CryptDB中，需要对加密过程进行记录：比如某个表的原始名字和加密以后的名字，表中有多少列，每列用了什么样的加密算法。这些信息被记录在mysql-proxy端的embedded MySQL中。CryptDB使用了元数据管理的模块处理这些信息，相关代码主要位于main&#x2F;dbobject.hh以及main&#x2F;schema.cc。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CryptDB代码分析3-元数据管理结构">
+<meta property="og:url" content="https://yiwenshao.github.io/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="本文是CryptDB代码分析的第三篇。在CryptDB中，需要对加密过程进行记录：比如某个表的原始名字和加密以后的名字，表中有多少列，每列用了什么样的加密算法。这些信息被记录在mysql-proxy端的embedded MySQL中。CryptDB使用了元数据管理的模块处理这些信息，相关代码主要位于main&#x2F;dbobject.hh以及main&#x2F;schema.cc。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classDatabaseMeta.png">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classTableMeta.png">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classFieldMeta.png">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classOnionMeta.png">
+<meta property="og:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classEncLayer.png">
+<meta property="article:published_time" content="2018-03-11T12:10:23.000Z">
+<meta property="article:modified_time" content="2018-03-11T12:10:23.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="CryptDB">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classDatabaseMeta.png">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/","path":"2018/03/11/CryptDB代码分析3-元数据管理结构/","title":"CryptDB代码分析3-元数据管理结构"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CryptDB代码分析3-元数据管理结构 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B1%82%E6%AC%A1%E5%8C%96%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">层次化的结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DatabaseMeta"><span class="nav-number">1.1.</span> <span class="nav-text">DatabaseMeta</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#TableMeta"><span class="nav-number">1.2.</span> <span class="nav-text">TableMeta</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#FieldMeta"><span class="nav-number">1.3.</span> <span class="nav-text">FieldMeta</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#OnionMeta"><span class="nav-number">1.4.</span> <span class="nav-text">OnionMeta</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#EncLayers"><span class="nav-number">1.5.</span> <span class="nav-text">EncLayers</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BB%A5RND-str%E4%B8%BA%E4%BE%8B"><span class="nav-number">1.6.</span> <span class="nav-text">以RND_str为例</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8%E6%A0%BC%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text">元数据存储格式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CryptDB代码分析3-元数据管理结构
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-03-11 20:10:23" itemprop="dateCreated datePublished" datetime="2018-03-11T20:10:23+08:00">2018-03-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Cryptdb%E7%9A%84%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0/" itemprop="url" rel="index"><span itemprop="name">Cryptdb的设计与实现</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>本文是CryptDB代码分析的第三篇。在CryptDB中，需要对加密过程进行记录：比如某个表的原始名字和加密以后的名字，表中有多少列，每列用了什么样的加密算法。这些信息被记录在mysql-proxy端的embedded MySQL中。CryptDB使用了元数据管理的模块处理这些信息，相关代码主要位于main/dbobject.hh以及main/schema.cc。</p>
+<span id="more"></span>
+
+
+<h3 id="层次化的结构"><a href="#层次化的结构" class="headerlink" title="层次化的结构"></a>层次化的结构</h3><p>在介绍元数据相关的类层次之前，我们首先考虑什么样的元信息需要被记录。我们创建一个数据库，需要在元信息里面记录新添加了这个数据库<strong>db</strong>。我们进一步在这个数据库里面建立一个表student，使用的语句是<strong>CREATE TABLE student (id integer)<strong>，这样的话，元信息里面就需要记录新加入的表</strong>student</strong>，并且需要知道这个表包含一个整数列id。由于要对数据做加密，这个整数列会被多种不同的洋葱加密，元信息里面也要包含这些内容。由于洋葱有很多的层次，那么每个洋葱处于哪一层也要被记录下来，这样才可以完成正确的加解密流程。<br>由此可以看到，元信息需要记录是一个层次化的结构，最上层的是db(数据库)，依次往下走，分别是table(表)，field(列)，onion(洋葱)，以及layer(洋葱层次)。CryptDB用了一组相关的数据结构来表示这个信息，分别是DatabaseMeta，TableMeta，FieldMeta，OnionMeta，Enclayer，下面依次介绍。</p>
+<h4 id="DatabaseMeta"><a href="#DatabaseMeta" class="headerlink" title="DatabaseMeta"></a>DatabaseMeta</h4><p>当我们使用语句<strong>CREATE DATABASE db</strong>创建一个数据库db的时候，CryptDB会生成一个DatabaseMeta结构来表示这个新的数据库，并把这个信息序列化以后写入到embedded MySQL中。该类的结构如下：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classDatabaseMeta.png"></p>
+<p>可以看到DatabaseMeta继承了模板类MappedDBMeta，而MappedDBMeta又继承了DBMeta类，下面分别介绍。</p>
+<p><strong>1）MappedDBMeta</strong></p>
+<p>MappedDBMeta是一个类模板，实例化以后被DatabaseMeta等一系列的类继承，其内部包含了std::map类型的成员，用于保存元数据的层次化关系。举例来说，一个数据库<strong>db</strong>下面，会建立很多的表，如**table1,table2,table3…**，这样的话可以通过一个如下的map来保存这种关系：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::map&lt;KeyType, std::unique_ptr&lt;ChildType&gt; &gt; children;</span><br></pre></td></tr></table></figure>
+
+<p>在CryptDB中，下层结构被称为child，上层和下层是包含关系，比如一个DatabaseMeta中就包含多个TableMeta。对于DatabaseMeta来说，map中的KeyType是<strong>IdentityMetaKey</strong>，是对表名字如<strong>table1</strong>的封装，而ChildType则是TableMeta，代表了一个表的元数据。所有继承了MappedDBMeta的元数据管理相关的类，都是通过map结构用Key-Value的方式来保存这种层次关系的。此外，MappedDBMeta还实现了继承自DBMeta的一些和child操作相关的函数，如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">std::vector&lt;DBMeta *&gt;</span><br><span class="line">fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn);</span><br><span class="line"></span><br><span class="line">bool</span><br><span class="line">applyToChildren(std::function&lt;bool(const DBMeta &amp;)&gt;);</span><br><span class="line"></span><br><span class="line">AbstractMetaKey const &amp;</span><br><span class="line">getKey(const DBMeta &amp;child);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>分别用于获取children，对每个child执行一个函数操作，以及通过child来获得child对应的key。</p>
+<p><strong>2）DBMeta：</strong></p>
+<p>DBMeta类继承了DBOjbect和NormalAlloc，其中提供功能的是DBObject，其作用是给给元数据相关的类记录一个<strong>id</strong>。本文介绍的所有元数据相关的类，都从DBObject中得到了<strong>id</strong>这个成员。此外，DBMeta类还定义了MappedDBMeta中用于对child做处理的纯虚函数。这样，各种常见的元数据相关的类都可以通过DBMeta的指针来保存，并执行相应的操作对内部保存在Map中的children进行处理。</p>
+<p>除此之外，其中还定义了纯虚函数：serialize，各个下层的类实现这个函数，对自身的结构做序列化，并存储在数据库中。</p>
+<p>最后，DBMeta中还定义了函数<strong>doFetchChildren</strong>，该函数会执行SQL语句，从数据库中读取序列化后的元数据管理类，做反序列化操作，然后以vector的形式返回结果。</p>
+<p><strong>3）DatabaseMeta：</strong></p>
+<p>有了上面的基础，就可以介绍DataBaseMeta了。DatabaseMeta代表了一个新的数据库，其通过继承模板类，用TableMeta和IdentityMetaKey来实例化模板参数来以Key-Value的形式保存数据库和表的关系。并且实现了继承自DBMeta的serialize函数来实现序列化，定义了deserialize函数实现反序列化，主要代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">class DatabaseMeta : public MappedDBMeta&lt;TableMeta, IdentityMetaKey&gt; &#123;</span><br><span class="line"></span><br><span class="line">static std::unique_ptr&lt;DatabaseMeta&gt;</span><br><span class="line">        deserialize(unsigned int id, const std::string &amp;serial);        </span><br><span class="line">std::string serialize(const DBObject &amp;parent) const;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">std::unique_ptr&lt;DatabaseMeta&gt;</span><br><span class="line">DatabaseMeta::deserialize(unsigned int id, const std::string &amp;serial) &#123;</span><br><span class="line">    assert(id != 0);</span><br><span class="line"></span><br><span class="line">    return std::unique_ptr&lt;DatabaseMeta&gt;(new DatabaseMeta(id));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">std::string</span><br><span class="line">DatabaseMeta::serialize(const DBObject &amp;parent) const&#123;</span><br><span class="line">    const std::string &amp;serial =</span><br><span class="line">        &quot;Serialize to associate database name with DatabaseMeta&quot;;</span><br><span class="line"></span><br><span class="line">    return serial;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，对于database来说，序列化只要写固定的一个字符串下去就可以，而反序列化的时候，这个字符串也没有用到，而是直接使用DatabaseMeta对应的id来做反序列化。</p>
+<h4 id="TableMeta"><a href="#TableMeta" class="headerlink" title="TableMeta"></a>TableMeta</h4><p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classTableMeta.png"></p>
+<p>和DatabaseMeta类似，TableMeta保存了一个table的信息。上图给出了TableMeta的继承关系。Table中包含了很多的列，每个列都有自己的名字，所以其用于实例化模板的类型分别是FieldMeta和IdentityMetaKey。前者代表了表中的一个列，后者则是列名的封装。TableMeta的主要定义如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">class TableMeta : public MappedDBMeta&lt;FieldMeta, IdentityMetaKey&gt;,</span><br><span class="line">                  public UniqueCounter &#123;</span><br><span class="line">    static std::unique_ptr&lt;TableMeta&gt;</span><br><span class="line">        deserialize(unsigned int id, const std::string &amp;serial);</span><br><span class="line">    std::string serialize(const DBObject &amp;parent) const;</span><br><span class="line">    std::string getAnonTableName() const;</span><br><span class="line">    std::vector&lt;FieldMeta *&gt; orderedFieldMetas() const;</span><br><span class="line">private:</span><br><span class="line">    const std::string anon_table_name;</span><br><span class="line">    uint64_t counter;</span><br><span class="line">    //from UniqueCounter</span><br><span class="line">    uint64_t &amp;getCounter_() &#123;return counter;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>首先看其成员anno_table_name。在CryptDB中，每个明文的表名都被替换成了密文的表名。其中明文的表名被封装成了IdentityMetaKey，存储在DatabaseMeta内部的Map中作为key，加密替换以后的表名则存储在TableMeta中的成员anon_table_name中。这样，在通过明文的表名做Key，找到对应的TableMeta类型的value时，可以从其类成员anno_table_name得到加密的表名。明文和密文的对应关系就是这样存储的。</p>
+<p>和DatabaseMeta不同的是，TableMeta还继承了UniqueCounter类，并拥有一个uint64t类型的成员counter。这个类的功能是，给counter值增加1,以及返回当前的counter值。这种增加counter的功能是为了底层的child类型能够被排序而设计的。一个表下有好几个列，这些列都是有顺序的。比如对于语句<strong>CREATE TABLE student( id integer, name value)<strong>，id列和name列的元信息表示都是FieldMeta，但是id在前，name在后。这种顺序就是通过counter来记录。在使用</strong>CREATE TABLE</strong>语句来建表时，会建立TableMeta结构，这个过程中，由于TableMeta通过Key-Value的形式保存了表中的各个列，所以在创建过程中要在map中添加项目，也就需要创建FieldMeta结构。创建每个FieldMeta前，都获取自增的counter传递到FieldMeta中，这样一个TableMeta下的FieldMeta就可以根据这个counter值进行排序了。</p>
+<p>最后来看看TableMeta的序列化和反序列化函数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">std::unique_ptr&lt;TableMeta&gt;</span><br><span class="line">TableMeta::deserialize(unsigned int id, const std::string &amp;serial) &#123;</span><br><span class="line">    assert(id != 0); </span><br><span class="line">    const auto vec = unserialize_string(serial);</span><br><span class="line">    //five items to be deserialized</span><br><span class="line">    assert(5 == vec.size());</span><br><span class="line">    const std::string anon_table_name = vec[0];</span><br><span class="line">    const bool hasSensitive = string_to_bool(vec[1]);</span><br><span class="line">    const bool has_salt = string_to_bool(vec[2]);</span><br><span class="line">    const std::string salt_name = vec[3];</span><br><span class="line">    const unsigned int counter = atoi(vec[4].c_str());</span><br><span class="line">    return std::unique_ptr&lt;TableMeta&gt;</span><br><span class="line">        (new TableMeta(id, anon_table_name, hasSensitive, has_salt,</span><br><span class="line">                       salt_name, counter));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">std::string </span><br><span class="line">TableMeta::serialize(const DBObject &amp;parent) const&#123;</span><br><span class="line">    const std::string &amp;serial =</span><br><span class="line">        serialize_string(getAnonTableName()) +</span><br><span class="line">        serialize_string(bool_to_string(hasSensitive)) +</span><br><span class="line">        serialize_string(bool_to_string(has_salt)) +</span><br><span class="line">        serialize_string(salt_name) +</span><br><span class="line">        serialize_string(std::to_string(counter));</span><br><span class="line">    return serial;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，TableMeta中的序列化和反序列化会对TableMeta中的几个成员进行了处理，进行了类成员和字符串的相互转换。</p>
+<h4 id="FieldMeta"><a href="#FieldMeta" class="headerlink" title="FieldMeta"></a>FieldMeta</h4><p>FieldMeta和TableMeta类似，也继承了UniqueCounter，因为一个Field内部包含了多个洋葱加密模型，每个洋葱代表了加密表中的一个列，这些洋葱当然也是有顺序的。FieldMeta的继承结构如下：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classFieldMeta.png"></p>
+<p>FieldMeta的主要定义是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">class FieldMeta : public MappedDBMeta&lt;OnionMeta, OnionMetaKey&gt;,</span><br><span class="line">                  public UniqueCounter &#123;</span><br><span class="line">public:</span><br><span class="line">static std::unique_ptr&lt;FieldMeta&gt;</span><br><span class="line">        deserialize(unsigned int id, const std::string &amp;serial);</span><br><span class="line">        std::string serialize(const DBObject &amp;parent) const;</span><br><span class="line">	std::vector&lt;std::pair&lt;const OnionMetaKey *, OnionMeta *&gt;&gt;</span><br><span class="line">        orderedOnionMetas() const;</span><br><span class="line">        OnionMeta *getOnionMeta(onion o) const;</span><br><span class="line">private:</span><br><span class="line">	const std::string fname;</span><br><span class="line">        const std::string salt_name;</span><br><span class="line">        const onionlayout onion_layout;</span><br><span class="line">        const bool has_salt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>对于FieldMeta，首先需要关注的是成员salt_name。对于一个Field来说，其除了被多层洋葱加密以外，还有一列随机数IV，在内部被称为salt。这个salt列有自己的名字，被保存在FieldMeta中。另一个需要关注的成员是onionlayout，是一个map结构，key是洋葱类型，value是一个vector，表示洋葱的各个层次。其示例代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">//洋葱类型</span><br><span class="line">typedef enum onion &#123;</span><br><span class="line">    oDET,</span><br><span class="line">    oOPE,</span><br><span class="line">    oAGG,</span><br><span class="line">&#125; onion;</span><br><span class="line">//洋葱层次</span><br><span class="line">enum class SECLEVEL &#123;</span><br><span class="line">    OPE,</span><br><span class="line">    DET,</span><br><span class="line">    SEARCH,</span><br><span class="line">    HOM,</span><br><span class="line">    RND,</span><br><span class="line">&#125;;</span><br><span class="line">//常见的onionlayout</span><br><span class="line">onionlayout NUM_ONION_LAYOUT = &#123;</span><br><span class="line">    &#123;oDET, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::DETJOIN, SECLEVEL::DET,</span><br><span class="line">                                  SECLEVEL::RND&#125;)&#125;,</span><br><span class="line">    &#123;oOPE, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::OPE, SECLEVEL::RND&#125;)&#125;,</span><br><span class="line">    &#123;oAGG, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::HOM&#125;)&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">onionlayout STR_ONION_LAYOUT = &#123;</span><br><span class="line">    &#123;oDET, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::DETJOIN, SECLEVEL::DET,</span><br><span class="line">                                  SECLEVEL::RND&#125;)&#125;,</span><br><span class="line">    &#123;oOPE, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::OPEFOREIGN, SECLEVEL::OPE, SECLEVEL::RND&#125;)&#125;,</span><br><span class="line">    &#123;oSWP, std::vector&lt;SECLEVEL&gt;(&#123;SECLEVEL::SEARCH&#125;)&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，洋葱以及洋葱的层次全都通过自行定义枚举类型来实现。上面给出了针对整数类型和字符串类型的onionlayout。最后我们给出FieldMeta的序列化和反序列化函数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">std::string FieldMeta::serialize(const DBObject &amp;parent) const &#123;</span><br><span class="line">    const std::string &amp;serialized_salt_name =</span><br><span class="line">        true == this-&gt;has_salt ? serialize_string(getSaltName())</span><br><span class="line">                               : serialize_string(&quot;&quot;);</span><br><span class="line">    std::string sql_type_string = std::to_string((int)sql_type);</span><br><span class="line">    const std::string serial =</span><br><span class="line">        serialize_string(fname) +</span><br><span class="line">        serialize_string(bool_to_string(has_salt)) +</span><br><span class="line">        serialized_salt_name +</span><br><span class="line">        serialize_string(TypeText&lt;onionlayout&gt;::toText(onion_layout)) +</span><br><span class="line">        serialize_string(TypeText&lt;SECURITY_RATING&gt;::toText(sec_rating)) +</span><br><span class="line">        serialize_string(std::to_string(uniq_count)) +</span><br><span class="line">        serialize_string(std::to_string(counter)) +</span><br><span class="line">        serialize_string(bool_to_string(has_default)) +</span><br><span class="line">        serialize_string(default_value) +</span><br><span class="line">        serialize_string(sql_type_string);//added by shaoyiwen</span><br><span class="line">   return serial;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">std::unique_ptr&lt;FieldMeta&gt;</span><br><span class="line">FieldMeta::deserialize(unsigned int id, const std::string &amp;serial) &#123;</span><br><span class="line">    assert(id != 0);</span><br><span class="line">    const auto vec = unserialize_string(serial);</span><br><span class="line">    assert(10 == vec.size());//We add one item,so there are ten items now</span><br><span class="line"></span><br><span class="line">    const std::string fname = vec[0];</span><br><span class="line">    const bool has_salt = string_to_bool(vec[1]);</span><br><span class="line">    const std::string salt_name = vec[2];</span><br><span class="line">    const onionlayout onion_layout = TypeText&lt;onionlayout&gt;::toType(vec[3]);</span><br><span class="line">    const SECURITY_RATING sec_rating =</span><br><span class="line">        TypeText&lt;SECURITY_RATING&gt;::toType(vec[4]);</span><br><span class="line">    const unsigned int uniq_count = atoi(vec[5].c_str());</span><br><span class="line">    const unsigned int counter = atoi(vec[6].c_str());</span><br><span class="line">    const bool has_default = string_to_bool(vec[7]);</span><br><span class="line">    const std::string default_value = vec[8];</span><br><span class="line"></span><br><span class="line">    enum  enum_field_types sql_type = ((enum  enum_field_types)atoi(vec[9].c_str()));//new field added</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    return std::unique_ptr&lt;FieldMeta&gt;</span><br><span class="line">        (new FieldMeta(id, fname, has_salt, salt_name, onion_layout,</span><br><span class="line">                       sec_rating, uniq_count, counter, has_default,</span><br><span class="line">                       default_value,sql_type));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，序列化和反序列化的函数和TableMeta是类似的，就是一些相关的成员转化成字符串，以及从字符串转换回各个成员的过程。</p>
+<h4 id="OnionMeta"><a href="#OnionMeta" class="headerlink" title="OnionMeta"></a>OnionMeta</h4><p>和前面的TableMeta，FieldMeta以及DatabaseMeta不同，OnionMeta没有继承MappedDBMeta类型，而是直接继承了DBMeta。其继承结构如下：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classOnionMeta.png"></p>
+<p>由于没有继承MappedDBMeta，所以其不会通过Key-Value的形式来保存children。对于OnionMeta来说，其下一层的类型是Enclayer，这种加密层的数据是直接通过std::vector来保存的。其主要的实现代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">class OnionMeta : public DBMeta &#123;</span><br><span class="line">static std::unique_ptr&lt;OnionMeta&gt;</span><br><span class="line">        deserialize(unsigned int id, const std::string &amp;serial);</span><br><span class="line">	//from DBMeta</span><br><span class="line">	std::string serialize(const DBObject &amp;parent) const;</span><br><span class="line"></span><br><span class="line">	//from DBMeta</span><br><span class="line">        std::vector&lt;DBMeta *&gt;</span><br><span class="line">        fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn);        </span><br><span class="line">        bool applyToChildren(std::function&lt;bool(const DBMeta &amp;)&gt;) const;</span><br><span class="line">	UIntMetaKey const &amp;getKey(const DBMeta &amp;child) const;</span><br><span class="line"></span><br><span class="line">	std::string getAnonOnionName() const;</span><br><span class="line">	SECLEVEL getSecLevel() const;</span><br><span class="line">private:</span><br><span class="line">	std::vector&lt;std::unique_ptr&lt;EncLayer&gt; &gt; layers;</span><br><span class="line">	const std::string onionname;</span><br><span class="line">	const unsigned long uniq_count;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>OnionMeta代表了一个洋葱。在CryptDB中，一个洋葱有很多的层次，每个层次代表一次加密，原始列的数据被这个洋葱中的多个层次依次进行加密。加密以后的列有列名，通过这里的onionname成员来记录。uniq_count成员则是用于onionmeta的排序，之前已经做过介绍。layers成员是通过vector类型来对加密层次进行记录。序列化和反序列化的函数和前面的类似，这里不再给出。</p>
+<h4 id="EncLayers"><a href="#EncLayers" class="headerlink" title="EncLayers"></a>EncLayers</h4><p>最后就是加密层了。加密层是整个元数据相关类的最底层，其继承结构如下：</p>
+<p><img src="https://yiwenshao.github.io/blogGraph/project/cryptdb/3/classEncLayer.png"></p>
+<p>首先来看LeafDBmeta类：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">class LeafDBMeta : public DBMeta &#123;</span><br><span class="line">public:</span><br><span class="line">    //from DBMeta</span><br><span class="line">    std::vector&lt;DBMeta *&gt;</span><br><span class="line">        fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn) &#123;</span><br><span class="line">        return std::vector&lt;DBMeta *&gt;();</span><br><span class="line">    &#125;</span><br><span class="line">    //from DBMeta</span><br><span class="line">    bool applyToChildren(std::function&lt;bool(const DBMeta &amp;)&gt;</span><br><span class="line">        fn) const &#123;</span><br><span class="line">        return true;</span><br><span class="line">    &#125;</span><br><span class="line">    //from DBMeta</span><br><span class="line">    AbstractMetaKey const &amp;getKey(const DBMeta &amp;child) const &#123;</span><br><span class="line">        assert(false);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，LeafDBMeta的作用是继承DBMeta，并实现其中三个函数。fetchChildren返回空的vector，applyToChildren也是什么也不做。这是因为对于EncLayers来说，已经没有更下一层的类，没有children的概念，当然就应该这么做实现。所以这里通过LeafDBMeta把这些性质都放到一起，作为EncLayer以及其下层类的共同特征。</p>
+<p>然后来看EncLayers：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">class EncLayer : public LeafDBMeta &#123;</span><br><span class="line">public:</span><br><span class="line">    virtual SECLEVEL level() const = 0;</span><br><span class="line">    virtual std::string name() const = 0;</span><br><span class="line"></span><br><span class="line">    // returns a rewritten create field to include in rewritten query</span><br><span class="line">    virtual Create_field *</span><br><span class="line">        newCreateField(const Create_field &amp;cf,</span><br><span class="line">                       const std::string &amp;anonname = &quot;&quot;) const = 0;</span><br><span class="line">                       </span><br><span class="line">    virtual Item *decryptUDF(Item * const col, Item * const ivcol = NULL)</span><br><span class="line">        const &#123;</span><br><span class="line">        thrower() &lt;&lt; &quot;decryptUDF not supported&quot;;</span><br><span class="line">    &#125;</span><br><span class="line">                       </span><br><span class="line">    virtual Item *encrypt(const Item &amp;ptext, uint64_t IV) const = 0;</span><br><span class="line">    virtual Item *decrypt(const Item &amp;ctext, uint64_t IV) const = 0;</span><br><span class="line">    //</span><br><span class="line">    virtual std::string doSerialize() const = 0;</span><br><span class="line">    std::string serialize(const DBObject &amp;parent) const &#123;</span><br><span class="line">        return serial_pack(this-&gt;level(), this-&gt;name(),</span><br><span class="line">                           this-&gt;doSerialize());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>EncLayer代表了一个加密层次的抽象，所以其首先应该有加密和解密函数，用于对数据做加解密。在这个层次，数据的加解密的对象是Item，这是一个MySQL的parser中定义的类型，代表了解析以后的SQL语句的语法树中的一个节点。加解密函数都有另一个参数IV，是用于构造随机性的随机数。对于具体的一种加密算法，其继承EncLayer以后，只要实现相关的函数就可以。</p>
+<p>每个加密层有自己的名字，有自己层次对应的枚举值，对于具体的加密类，还有自己本身特定的数据结构。这三类信息都需要在序列化的时候被保存，这就是EncLayers的<strong>serialize</strong>函数的实现。对于反序列化函数，则依然在底层的类(DET_str，OPE_int等)中通过static函数的形式给出。</p>
+<p><strong>newCreateField</strong>函数是为了处理数据类型的变化：数据经过加密算法的处理，其数据类型和数据长度会发生变化，加密层的newCreateField要能够返回加密以后的数据类型。这种类型的信息封装在Create_field类里面了，这也是MySQL的parser中定义的类，具体细节不在此展开。</p>
+<p><strong>decryptUDF</strong>函数用于洋葱层次的调整。举例来说，当一个查询需要使用<strong>where xx=xx</strong>的条件时，需要使用洋葱层次DET，而如果此时洋葱的实际层次是RND，则需要在MySQL端执行解密函数，剥掉RND层。这个操作通过UDF来完成，而decryptUDF就是用来生成这个UDF语句的。</p>
+<h4 id="以RND-str为例"><a href="#以RND-str为例" class="headerlink" title="以RND_str为例"></a>以RND_str为例</h4><p>对于具体的加密算法层，只要继承EncLayer并实现上面介绍的几个函数就可以了，这里以RND_str作为例子。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><span class="line">class RND_str : public EncLayer &#123;</span><br><span class="line">public:</span><br><span class="line">    RND_str(const Create_field &amp;cf, const std::string &amp;seed_key);</span><br><span class="line"></span><br><span class="line">    // serialize and deserialize</span><br><span class="line">    std::string doSerialize() const &#123;return rawkey;&#125;</span><br><span class="line">    RND_str(unsigned int id, const std::string &amp;serial);</span><br><span class="line"></span><br><span class="line">    SECLEVEL level() const &#123;return SECLEVEL::RND;&#125;</span><br><span class="line">    std::string name() const &#123;return &quot;RND_str&quot;;&#125;</span><br><span class="line">    Create_field * newCreateField(const Create_field &amp;cf,</span><br><span class="line">                                  const std::string &amp;anonname = &quot;&quot;)</span><br><span class="line">        const;</span><br><span class="line">    Item * encrypt(const Item &amp;ptext, uint64_t IV) const;</span><br><span class="line">    Item * decrypt(const Item &amp;ctext, uint64_t IV) const;</span><br><span class="line">    Item * decryptUDF(Item * const col, Item * const ivcol) const;</span><br><span class="line"></span><br><span class="line">private:</span><br><span class="line">    const std::string rawkey;</span><br><span class="line">    static const int key_bytes = 16;</span><br><span class="line">    static const bool do_pad   = true;</span><br><span class="line">    const std::unique_ptr&lt;const AES_KEY&gt; enckey;</span><br><span class="line">    const std::unique_ptr&lt;const AES_KEY&gt; deckey;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">Create_field *</span><br><span class="line">RND_str::newCreateField(const Create_field &amp;cf,</span><br><span class="line">                        const std::string &amp;anonname) const &#123;</span><br><span class="line">    const auto typelen = AESTypeAndLength(cf, do_pad);</span><br><span class="line">    return arrayCreateFieldHelper(cf, typelen.second, typelen.first,</span><br><span class="line">                                  anonname, &amp;my_charset_bin);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Item *</span><br><span class="line">RND_str::encrypt(const Item &amp;ptext, uint64_t IV) const &#123;</span><br><span class="line">    const std::string &amp;enc =</span><br><span class="line">        encrypt_AES_CBC(ItemToString(ptext), enckey.get(),</span><br><span class="line">                        BytesFromInt(IV, SALT_LEN_BYTES), do_pad);</span><br><span class="line">    return new (current_thd-&gt;mem_root) Item_string(make_thd_string(enc),</span><br><span class="line">                                                   enc.length(),</span><br><span class="line">                                                   &amp;my_charset_bin);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Item *</span><br><span class="line">RND_str::decrypt(const Item &amp;ctext, uint64_t IV) const &#123;</span><br><span class="line">    const std::string &amp;dec =</span><br><span class="line">        decrypt_AES_CBC(ItemToString(ctext), deckey.get(),</span><br><span class="line">                        BytesFromInt(IV, SALT_LEN_BYTES), do_pad);</span><br><span class="line">    return new (current_thd-&gt;mem_root) Item_string(make_thd_string(dec),</span><br><span class="line">                                                   dec.length(),</span><br><span class="line">                                                   &amp;my_charset_bin);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static udf_func u_decRNDString = &#123;</span><br><span class="line">    LEXSTRING(&quot;cryptdb_decrypt_text_sem&quot;),</span><br><span class="line">    STRING_RESULT,</span><br><span class="line">    UDFTYPE_FUNCTION,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    NULL,</span><br><span class="line">    0L,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">Item *</span><br><span class="line">RND_str::decryptUDF(Item * const col, Item * const ivcol) const &#123;</span><br><span class="line">    List&lt;Item&gt; l;</span><br><span class="line">    l.push_back(col);</span><br><span class="line">    l.push_back(get_key_item(rawkey));</span><br><span class="line">    l.push_back(ivcol);</span><br><span class="line">    return new (current_thd-&gt;mem_root) Item_func_udf_str(&amp;u_decRNDString,</span><br><span class="line">                                                         l);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上面的例子给出了一个实际的RND_str加密层的实现。其他层的实现是类似的：本文基于修改版的CryptDB，采用类似的方法添加了新的加密层<strong>ASHE</strong>。</p>
+<p>上面的代码也是对MySQL parser中的类型进行操作，这里先忽略这个细节，直接关注每个函数的功能：</p>
+<ul>
+<li>初始化的时候，对AES算法进行初始化</li>
+<li>encrypt与decrypt函数使用AES算法对Item类型进行加解密，加解密都要求先把Item类型转化成普通的string类型，然后对string进行加解密处理，处理完成以后又重新转化成Item类型</li>
+<li>decryptUDF在这里返回了一个UDF，名字是cryptdb_decrypt_text_sem，通过调用这个UDF来实现RND层次的洋葱解密</li>
+<li>newCreateField函数对string长度做了padding的处理，要求string长度是AES的blcok大小的整数倍。举例来说一个**CREATE TABLE student(name varchar(20))**，在block大小是16的情况下，20会被这个函数被扩展成32。这种数据类型和长度的信息都记录在了Create_field类结构中</li>
+</ul>
+<h3 id="元数据存储格式"><a href="#元数据存储格式" class="headerlink" title="元数据存储格式"></a>元数据存储格式</h3><p>最后介绍元数据在数据库中的存储格式。首先看本地的数据库中用于记录元数据的表的定义：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `MetaData` (</span><br><span class="line">  `serial_object` varbinary(500) NOT NULL,</span><br><span class="line">  `serial_key` varbinary(500) NOT NULL,</span><br><span class="line">  `parent_id` bigint(20) NOT NULL,</span><br><span class="line">  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,</span><br><span class="line">  PRIMARY KEY (`id`),</span><br><span class="line">  UNIQUE KEY `id` (`id`)</span><br><span class="line">)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在上面的层次结构中，一部分对象通过Key-Value的形式被记录，还有最后一层的EncLayers，虽然是以数组的形式存储，但是每一层也有自己的枚举的名字，也可以看成Key-Value。这样，就可以用seria_key和serial_object两个列来记录这个Key-Value。每个元数据管理对象有自己继承自DBObject的id，这个id存储在表中的id这列。parent_id表示的是当前的类上层的类的id。下面给出一个例子：</p>
+<p>假设我们执行了以下两个语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">CREATE DATABASE db;</span><br><span class="line">CREATE TABLE student(id integer);</span><br></pre></td></tr></table></figure>
+
+<p>并且我们对于整数列id只使用一个DET洋葱进行加密。那么，初始化有三个洋葱层：DETJOIN DET RND。那么语句执行完以后的数据库中表内容如下：</p>
+<table>
+<thead>
+<tr>
+<th>serial_object</th>
+<th>serial_key</th>
+<th>parent_id</th>
+<th>id</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Serialize to associate database name with DatabaseMeta</td>
+<td>2_db</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>16_table_IAUMLMEJLL4_TRUE4_ TRUE20_tableSalt_JXOLNITEJN1 _1</td>
+<td>7_student</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2_id4_TRUE18_cdb_saltYHRATVO WOU18_CURRENT_NUM_LAYOU T9_SENSITIVE1_01_35_FALSE0_ 1_3</td>
+<td>2_id</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td>13_CATSNIAGMMoEq1_07_ DETJOIN</td>
+<td>3_oEq</td>
+<td>3</td>
+<td>4</td>
+</tr>
+<tr>
+<td>67 DETJOIN DETJOIN_int 16_???19_ MYSQL_TYPE_LONGLONG1_0 20_18446744073709551615</td>
+<td>1_0</td>
+<td>4</td>
+<td>5</td>
+</tr>
+<tr>
+<td>67 DET DET_int 16_???19_MYSQL_TYP E_LONGLONG1_020_184467 44073709551615</td>
+<td>1_1</td>
+<td>4</td>
+<td>6</td>
+</tr>
+<tr>
+<td>67 RND RND_int 16_???19_MYSQL_TYP E_LONGLONG1_020_1844674 4073709551615</td>
+<td>1_2</td>
+<td>4</td>
+<td>7</td>
+</tr>
+</tbody></table>
+<p>从表中可以看出，建立db数据库的时候，写入了第一行记录。id是1，parent_id是0。建立student表的时候，db有了第一个child，于是插入一条新记录：id是2，parent_id是1。对于表来说，有一个field是id，所以有第三条记录，parent_id是2，表示这是studnet表的field。对于field id来说，包含了一个洋葱DET，这个洋葱有三个层次。所以有后面几行数据。而serial_boject以及serial_key则是之前介绍的序列化函数处理的结果(对于不可显示字符采用???替换)。通过这个例子，我们可以发现，通过serial_object和serial_key可以保存元数据管理类，这些字符串是通过serialize函数来编码生成的。通过id和parent_id，可以保存这些类之间的层次关系。</p>
+<h3 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h3><p>本文介绍了CryptDB中元数据管理相关的类的设计。由于需要保存database，table，field，onion，layer这样的层次关系，分别设计了DatabaseMeta，TableMeta，FieldMeta，OnionMeta，Enclayer类。Enclayer之上，上下层的关系通过继承MappedDBMeta，使用map结构进行保存，EncLayer则直接通过vector保存在OnionMeta中。每个类都有自己的序列化和反序列函数，需要把类自身以及类之间的关系编码写入到MySQL，本文通过一个例子来说明了这种编码方式。</p>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><p><a target="_blank" rel="noopener" href="https://github.com/yiwenshao/Practical-Cryptdb">https://github.com/yiwenshao/Practical-Cryptdb</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/CryptDB/" rel="tag"># CryptDB</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/03/06/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%902-handler%E4%B8%8Eexecutor/" rel="prev" title="CryptDB代码分析2-handler与executor">
+                  <i class="fa fa-chevron-left"></i> CryptDB代码分析2-handler与executor
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/" rel="next" title="CryptDB代码分析4-加密元数据读写">
+                  CryptDB代码分析4-加密元数据读写 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+</body>
+</html>

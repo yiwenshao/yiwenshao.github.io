@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":true,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="条件变量与锁">
+<meta property="og:url" content="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-11-05T08:00:20.000Z">
+<meta property="article:modified_time" content="2016-11-05T08:00:20.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="并发">
+<meta property="article:tag" content="生产者消费者">
+<meta property="article:tag" content="C语言">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/","path":"2016/11/05/条件变量与锁/","title":"条件变量与锁"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>条件变量与锁 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%81"><span class="nav-number">1.</span> <span class="nav-text">锁</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%94%81%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">1.1.</span> <span class="nav-text">锁初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8A%A0%E9%94%81"><span class="nav-number">1.2.</span> <span class="nav-text">加锁</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%87%8A%E6%94%BE%E9%94%81"><span class="nav-number">1.3.</span> <span class="nav-text">释放锁</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9B%9E%E6%94%B6%E8%B5%84%E6%BA%90"><span class="nav-number">1.4.</span> <span class="nav-text">回收资源</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%8F%98%E9%87%8F"><span class="nav-number">2.</span> <span class="nav-text">共享变量</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">2.1.</span> <span class="nav-text">初始化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AD%89%E5%BE%85%E6%9D%A1%E4%BB%B6%E6%88%90%E7%AB%8B"><span class="nav-number">2.2.</span> <span class="nav-text">等待条件成立</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%80%9A%E7%9F%A5"><span class="nav-number">2.3.</span> <span class="nav-text">通知</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81"><span class="nav-number">3.</span> <span class="nav-text">共享变量与锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E7%9A%84%E4%BD%BF%E7%94%A8%E4%BE%8B%E5%AD%90"><span class="nav-number">4.</span> <span class="nav-text">条件变量的使用例子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          条件变量与锁
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-11-05 16:00:20" itemprop="dateCreated datePublished" datetime="2016-11-05T16:00:20+08:00">2016-11-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/default/" itemprop="url" rel="index"><span itemprop="name">default</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>本文以linux c为例子, 介绍锁和共享变量的基本使用方法, 并介绍一个基于条件变量实现生产者消费者模型的例子, 然后在文末给出相关书籍的参考.</p>
+<span id="more"></span>
+<h3 id="锁"><a href="#锁" class="headerlink" title="锁"></a>锁</h3><p>多线程情况下, 锁的使用主要涉及以下5个函数, 它们都包含在pthread.h头文件中.</p>
+<ul>
+<li><p>pthread_mutex_init(pthread_mutex_t * mutex,const pthread_mutexattr_t *attr)</p>
+</li>
+<li><p>pthread_mutex_lock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_tylock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_unlock(pthread_mutex_t *mutex)</p>
+</li>
+<li><p>pthread_mutex_destroy(pthread_mutex_t *mutex)</p>
+</li>
+</ul>
+<p>其中, 锁变量类型为pthread_mutex_t, 锁的使用包含三个步骤, 分别是锁的初始化, 加锁, 以及释放锁.</p>
+<p>下面分别介绍各个函数的用法</p>
+<h4 id="锁初始化"><a href="#锁初始化" class="headerlink" title="锁初始化"></a>锁初始化</h4><p>pthread_mutex_init该函数用于锁的初始化, 其函数头是</p>
+<p>*<em>pthread_mutex_init(pthread_mutex_t * mutex,const pthread_mutexattr_t <em>attr)</em></em></p>
+<p>要使用锁, 首先需要声明一个pthread_mutex_t变量,然后用该函数进行初始化, 如下</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pthread_mutex_t</span> mutex;</span><br><span class="line">pthread_mutex_init(&amp;mutex,<span class="literal">NULL</span>);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>初始化的时候, 第二个参数可以用于设置锁的性质, 设置方法可以参考文末的参考文献. 经过这一步, 我们完成了锁的初始化. 在第二个参数设置NULL的时候, 一个线程加锁, 另外一个线程再执行加锁操作, 就会阻塞, 直到另外的线程释放锁. 加锁可以用下面的函数来完成.</p>
+<h4 id="加锁"><a href="#加锁" class="headerlink" title="加锁"></a>加锁</h4><p>pthread_mutex_lock与pthread_mutex_tylock这两个函数可以用于加锁, 其函数头分别是:</p>
+<p>*<em>pthread_mutex_lock(pthread_mutex_t <em>mutex)</em></em></p>
+<p>*<em>pthread_mutex_tylock(pthread_mutex_t <em>mutex)</em></em></p>
+<p>这两个函数都完成了加锁的功能, 在获得了变量初始化后的mutex以后, 直接调用函数即可完成加锁功能. 其中第一个函数在另外一个线程已经获得锁的情况下, 会一直阻塞, 而第二个函数则会直接返回, 不会阻塞.</p>
+<h4 id="释放锁"><a href="#释放锁" class="headerlink" title="释放锁"></a>释放锁</h4><p>**pthread_mutex_unlock(pthread_mutex_t *mutex)**函数可以用于释放锁.</p>
+<h4 id="回收资源"><a href="#回收资源" class="headerlink" title="回收资源"></a>回收资源</h4><p>**pthread_mutex_destroy(pthread_mutex_t *mutex)**该函数用于释放资源, 在使用pthread_mutex_init函数进行锁初始化的情况下, 使用结束以后,需要使用该函数释放资源.</p>
+<h3 id="共享变量"><a href="#共享变量" class="headerlink" title="共享变量"></a>共享变量</h3><p>共享变量应用于这样一种场景: 一个线程先对某一条件进行判断, 如果条件不满足则进入等待, 条件满足的时候, 该线程被通知条件满足, 继续执行任务. 共享变量涉及的函数有如下6个</p>
+<ul>
+<li>int pthread_cond_init(pthread_cond_t *cond, pthread_condattr_t *cond_attr)</li>
+<li>int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)</li>
+<li>int pthread_cond_signal(pthread_cond_t *cond)</li>
+<li>int pthread_cond_broadcast(pthread_cond_t *cond)</li>
+<li>int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime)</li>
+</ul>
+<h4 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h4><p>**int pthread_cond_init(pthread_cond_t <em>cond, pthread_condattr_t <em>cond_attr)</em></em></p>
+<p>要使用条件变量, 首先要声明一个pthread_cond_t变量, 然后用该函数进行初始化. 第二个参数使用NULL, 具体的参数设置, 限于篇幅, 参考文末的参考文献.</p>
+<h4 id="等待条件成立"><a href="#等待条件成立" class="headerlink" title="等待条件成立"></a>等待条件成立</h4><p>**int pthread_cond_wait(pthread_cond_t <em>cond, pthread_mutex_t <em>mutex)</em></em></p>
+<p>**int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t <em>mutex, const struct timespec <em>abstime)</em></em></p>
+<p>在条件不满足的时候, 调用该函数进入等待. 当条件满足的时候, 该函数会停止等待, 继续执行. 该函数的第二个参数是pthread_mutex_t类型, 这是因为在条件判断的时候, 需要先进行加锁来防止出现错误, 在执行改函数前需要主动对这个变量执行加锁操作, 进入这个函数以后, <strong>其内部会对mutex进行解锁操作</strong>, 而函数执行完以后(也就是停止阻塞以后), 又会重新加锁. 具体原因, 在介绍完本组函数以后进行说明. 其中第二个函数可以指定等待的时间, 而不是一直在阻塞.</p>
+<h4 id="通知"><a href="#通知" class="headerlink" title="通知"></a>通知</h4><p>*<em>int pthread_cond_signal(pthread_cond_t <em>cond)</em></em> </p>
+<p>*<em>int pthread_cond_broadcast(pthread_cond_t <em>cond)</em></em></p>
+<p>上面说到, 在条件不满足的时候, 一个线程会调用pthread_cond_wait函数, 阻塞等待. 而此时如果其他线程检查到条件满足, 则可以调用这两个函数, 让处于等待状态的线程重新开始执行. 当有多个线程在等待的时候, 第一个函数会唤醒其中一个线程, 而第二个函数会唤醒所有的等待的线程.</p>
+<h3 id="共享变量与锁"><a href="#共享变量与锁" class="headerlink" title="共享变量与锁"></a>共享变量与锁</h3><p>介绍完了基本的函数功能, 接下来介绍这两套函数配合使用的一个常见场景: 有两个线程, 其中一个线程先对一个条件进行检查, 这个检查动作需要先加锁. 如果条件成立, 则执行操作, 否则阻塞等待, 直到条件成立, 这个线程才会被通知继续执行. 另一个线程先做加锁处理, 然后置条件为真, 并通知其他等待的线程条件已经满足, 可以继续执行.</p>
+<p>上面说在检查共享变量的时候, 要加锁, 其原因通过以下伪代码来说明.</p>
+<p>第一种情况</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">线程<span class="number">1</span></span><br><span class="line">pthread_mutex_lock(&amp;mutex); </span><br><span class="line"><span class="keyword">while</span> (condition == FALSE) &#123;</span><br><span class="line">    pthread_cond_wait(&amp;cond, &amp;mutex); </span><br><span class="line">&#125;</span><br><span class="line">pthread_mutex_unlock(&amp;mutex);</span><br><span class="line"></span><br><span class="line">线程<span class="number">2</span></span><br><span class="line">condition = TRUE;</span><br><span class="line">pthread_cond_signal(&amp;cond);</span><br></pre></td></tr></table></figure>
+<p>可以看到, 线程1先检查一个条件是否成立, 在不成立的情况下, 就调用wait函数进行等待. 而在这之前, 先对这步过程进行了加锁操作. 线程2则是把条件设置为true(假设其通过某种方式知道了这个时候该条件应当为true), 然后用pthread_cond_signal函数通知线程1停止阻塞继续执行. 上面的程序在多个线程并发执行的时候有如下的问题:<br>如果线程1先判断, 发现条件不满足, 准备进入等待, 在这个时候, 线程2中条件被置为真, 且发送通知. 然后线程1才阻塞等待, 这样的话, 线程1错过了一次通知, 导致其在条件满足的情况下依然在阻塞等待.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">        线程<span class="number">1</span>                               线程<span class="number">2</span></span><br><span class="line">pthread_mutex_lock(&amp;mutex);</span><br><span class="line"><span class="keyword">while</span> (condition == FALSE)</span><br><span class="line">                                      condition = TRUE;</span><br><span class="line">                                      pthread_cond_signal(&amp;cond);</span><br><span class="line">pthread_cond_wait(&amp;cond, &amp;mutex);</span><br></pre></td></tr></table></figure>
+
+<p>为了解决上面说的问题, 对程序进行了如下的改进. 通过线程2的加锁操作, 避免了这样的问题. 这也解释了为什么pthread_cond_wait函数在进入以后要进行解锁操作, 如果起不解锁, 那么线程2在进行条件置为true的操作就没有办法执行, 因为线程1在进入等待之前已经对这个变量加锁了. 这样线程1会一直等待, 而线程2也会等待, 导致死锁.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">线程<span class="number">1</span>                                       线程<span class="number">2</span></span><br><span class="line">pthread_mutex_lock(&amp;mutex);           pthread_mutex_lock(&amp;mutex);</span><br><span class="line"><span class="keyword">while</span> (condition == FALSE) &#123;          condition = TRUE;</span><br><span class="line"> pthread_cond_wait(&amp;cond, &amp;mutex);    pthread_cond_signal(&amp;cond);</span><br><span class="line">&#125;                                     pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">pthread_mutex_unlock(&amp;mutex);</span><br></pre></td></tr></table></figure>
+
+<p>补充说明一点,因为wait重新执行的时候需要再次加锁,所以上面的pthread_cond_signal调用以后, 必须释放锁,才能够完成wait. 另外, 也可以先解锁, 然后调用pthread_cond_signal,这两种写法都是正确的. 虽然共享变量的访问一般需要加锁, 但在这个场景下不加锁造成的竞争不会产生错误,  只是会造成线程调度效率上的问题, 所以也可以这么写, 但是一般推荐标准的写法. 具体可以看参考文献.</p>
+<h3 id="条件变量的使用例子"><a href="#条件变量的使用例子" class="headerlink" title="条件变量的使用例子"></a>条件变量的使用例子</h3><p>下面的链接以redis 3.2.3的代码中的BIO模块为例子, 给出实际系统中的条件变量使用的方法. 可以发现, redis的BIO模块就是用上面介绍的模型实现的.</p>
+<p><a href="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/">Redis BIO系统</a></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>锁的基本使用包括了锁初始化, 加锁, 解锁三个步骤. 使用默认的锁性质时, 一个锁变量只能由一个线程获得, 在这个线程释放锁之前, 其他线程如果尝试获得锁, 就会进入阻塞的状态. 这样, 加锁和解锁之间的这段代码只有一个线程执行, 从而能够保证并发访问的正确性.</p>
+<p>对于条件变量, 其基本的使用场景是, 某些线程对条件进行判断, 如果不满足条件, 就进入等待状态. 在进行条件判断之前, 先进行加锁操作. 另外一些线程则是负责对条件赋值为真, 然后通知等待的线程继续执行, 线程被唤醒后, 继续进入判断的环节以及后续的操作.</p>
+<p>以上面例子来看, 也就是可以分为以下两部分:</p>
+<p>A类线程:</p>
+<ul>
+<li>加锁</li>
+<li>检查(条件不成立则等待,知道成立再次进入检查阶段)</li>
+<li>执行</li>
+<li>解锁</li>
+</ul>
+<p>B类线程:</p>
+<ul>
+<li>加锁</li>
+<li>条件置为真</li>
+<li>通知</li>
+<li>解锁</li>
+</ul>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><p><a href="">[1] Unix Networking Programming, Volume 2, W. Richard Stevens, chapter 7, 8</a><br><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex">[2] stackoverflow/questions/4544234/</a><br><a href="https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/">[3] Redis BIO系统</a><br><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/6312342/pthread-cond-wait-and-mutex-requirement">[4] http://stackoverflow.com/questions/6312342/</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%B9%B6%E5%8F%91/" rel="tag"># 并发</a>
+              <a href="/tags/%E7%94%9F%E4%BA%A7%E8%80%85%E6%B6%88%E8%B4%B9%E8%80%85/" rel="tag"># 生产者消费者</a>
+              <a href="/tags/C%E8%AF%AD%E8%A8%80/" rel="tag"># C语言</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016/10/05/redis%E9%9B%86%E7%BE%A4%E6%90%AD%E5%BB%BA%E6%96%B9%E6%B3%95/" rel="prev" title="Redis集群搭建方法">
+                  <i class="fa fa-chevron-left"></i> Redis集群搭建方法
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/" rel="next" title="Redis的BIO系统">
+                  Redis的BIO系统 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+</body>
+</html>

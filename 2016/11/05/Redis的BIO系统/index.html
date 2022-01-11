@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Mist","darkmode":true,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="Redis通过bio系统完成两件事，一是进行Aof持久化，也就是将写入到系统的page cache的数据fsync到磁盘中；二是关闭文件。为了完成这件任务，其采用了任务队列的方式，每个任务都是一个线程来完成，任务会被放到任务队列中，然后由执行任务线程取走，如果队列空，则阻塞等待，如果队列里有任务，就通知工作线程，这通过条件变量来实现。后面以任务初始化，任务放入队列，任务出队列三个方面进行介绍，并且">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis的BIO系统">
+<meta property="og:url" content="https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="Redis通过bio系统完成两件事，一是进行Aof持久化，也就是将写入到系统的page cache的数据fsync到磁盘中；二是关闭文件。为了完成这件任务，其采用了任务队列的方式，每个任务都是一个线程来完成，任务会被放到任务队列中，然后由执行任务线程取走，如果队列空，则阻塞等待，如果队列里有任务，就通知工作线程，这通过条件变量来实现。后面以任务初始化，任务放入队列，任务出队列三个方面进行介绍，并且">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-11-05T08:30:34.000Z">
+<meta property="article:modified_time" content="2016-11-05T08:30:34.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="并发">
+<meta property="article:tag" content="生产者消费者">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/","path":"2016/11/05/Redis的BIO系统/","title":"Redis的BIO系统"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Redis的BIO系统 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%BB%E5%8A%A1%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">1.</span> <span class="nav-text">任务初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%BB%E5%8A%A1%E5%85%A5%E9%98%9F%E5%88%97"><span class="nav-number">2.</span> <span class="nav-text">任务入队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%BB%E5%8A%A1%E5%87%BA%E9%98%9F%E5%88%97"><span class="nav-number">3.</span> <span class="nav-text">任务出队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Aof%E6%8C%81%E4%B9%85%E5%8C%96%E7%9A%84%E4%BE%8B%E5%AD%90"><span class="nav-number">4.</span> <span class="nav-text">Aof持久化的例子</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E6%96%87%E7%8C%AE"><span class="nav-number">6.</span> <span class="nav-text">相关文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2016/11/05/Redis%E7%9A%84BIO%E7%B3%BB%E7%BB%9F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://yiwenshao.github.io/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Redis的BIO系统
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-11-05 16:30:34" itemprop="dateCreated datePublished" datetime="2016-11-05T16:30:34+08:00">2016-11-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/default/" itemprop="url" rel="index"><span itemprop="name">default</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>Redis通过bio系统完成两件事，一是进行Aof持久化，也就是将写入到系统的page cache的数据fsync到磁盘中；二是关闭文件。为了完成这件任务，其采用了任务队列的方式，每个任务都是一个线程来完成，任务会被放到任务队列中，然后由执行任务线程取走，如果队列空，则阻塞等待，如果队列里有任务，就通知工作线程，这通过条件变量来实现。后面以任务初始化，任务放入队列，任务出队列三个方面进行介绍，并且以aof持久化为例说明其在系统中的使用方式，本文基于redis的3.2.3版本代码。</p>
+<span id="more"></span>
+<h2 id="任务初始化"><a href="#任务初始化" class="headerlink" title="任务初始化"></a>任务初始化</h2><p>对于一个任务，比如aof持久化任务，首先要初始化一个队列，在redis里面使用了redis自己的链表结构建立这个队列。这个队列需要满足以下特点：</p>
+<ul>
+<li>生产者放任务到队列中。</li>
+<li>如果队列不为空，消费者从队列中取任务；否则消费者进入等待状态。</li>
+</ul>
+<p>这里的消费者就是服务线程，而为了完成队列为空则等待的功能，redis使用了条件变量机制。其初始化代码如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">pthread_t</span> bio_threads[BIO_NUM_OPS];</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">pthread_mutex_t</span> bio_mutex[BIO_NUM_OPS];</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">pthread_cond_t</span> bio_condvar[BIO_NUM_OPS];</span><br><span class="line"><span class="keyword">static</span> <span class="built_in">list</span> *bio_jobs[BIO_NUM_OPS];</span><br></pre></td></tr></table></figure>
+
+<p>上面的常量BIO_NUM_OPS = 2,表示支持两种任务。对于每种任务，对应一个list用于放置任务，一个pthread_cond_t和pthread_mutex_t变量用于并发控制，以及一个pthread_t 用于后台服务线程。<br>初始化使用了bioInit函数，部分代码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; BIO_NUM_OPS; j++) &#123;</span><br><span class="line">    pthread_mutex_init(&amp;bio_mutex[j],<span class="literal">NULL</span>);</span><br><span class="line">    pthread_cond_init(&amp;bio_condvar[j],<span class="literal">NULL</span>);</span><br><span class="line">    bio_jobs[j] = listCreate();</span><br><span class="line">    bio_pending[j] = <span class="number">0</span>;</span><br><span class="line">&#125;<span class="comment">//初始化锁与条件变量</span></span><br><span class="line">......</span><br><span class="line">......</span><br><span class="line"><span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; BIO_NUM_OPS; j++) &#123; </span><br><span class="line">    <span class="keyword">void</span> *arg = (<span class="keyword">void</span>*)(<span class="keyword">unsigned</span> <span class="keyword">long</span>) j;</span><br><span class="line">    <span class="comment">//这里的函数参数是arg = j，也就是每个线程传入一个编号j，0代表关闭文件，1代表aof初始化 </span></span><br><span class="line">    <span class="keyword">if</span> (pthread_create(&amp;thread,&amp;attr,bioProcessBackgroundJobs,arg) != <span class="number">0</span>) &#123;    </span><br><span class="line">        serverLog(LL_WARNING,<span class="string">&quot;Fatal: Can&#x27;t initialize Background Jobs.&quot;</span>); </span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>); </span><br><span class="line">    &#125; </span><br><span class="line">    bio_threads[j] = thread; </span><br><span class="line">&#125;<span class="comment">//初始化线程</span></span><br></pre></td></tr></table></figure>
+
+<p>在完成初始化任务以后，我们有了BIO_NUM_OPS(其值为2)个链表表示任务队列，有两个线程调用bioProcessBackgroundJobs函数，参数是一个编号j，并且每个队列都初始化了锁与条件变量做并发控制。</p>
+<h2 id="任务入队列"><a href="#任务入队列" class="headerlink" title="任务入队列"></a>任务入队列</h2><p>任务入队列就是把一个任务放到链表的头部,并且把相应任务的pending值+1,表示这个队列里面未完成的任务多了一个。<br>其中任务的结构如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">bio_job</span> &#123;</span></span><br><span class="line">    <span class="keyword">time_t</span> time;</span><br><span class="line">    <span class="keyword">void</span> *arg1, *arg2, *arg3;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>可以看到，任务不是很复杂，只记录一个时间和参数就可以了，后面讲任务执行的时候，会讲到这样一个简单的结构记录的任务怎么执行。任务入队列的代码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">bioCreateBackgroundJob</span><span class="params">(<span class="keyword">int</span> type, <span class="keyword">void</span> *arg1, <span class="keyword">void</span> *arg2, <span class="keyword">void</span> *arg3)</span> </span>&#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">bio_job</span> *<span class="title">job</span> =</span> zmalloc(<span class="keyword">sizeof</span>(*job));</span><br><span class="line">    job-&gt;arg1 = arg1;</span><br><span class="line"> ...</span><br><span class="line">    pthread_mutex_lock(&amp;bio_mutex[type]);</span><br><span class="line">    listAddNodeTail(bio_jobs[type],job);</span><br><span class="line">    bio_pending[type]++;</span><br><span class="line">    pthread_cond_signal(&amp;bio_condvar[type]);</span><br><span class="line">    pthread_mutex_unlock(&amp;bio_mutex[type]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这段入队列的代码先为任务结构分配空间，然后使用listAddNodeTail函数把任务放到链表的头部。这里使用的是redis自己实现的链表。可以看到，进行链表操作的时候，要先加锁，这是因为这里的链表是共享资源。在任务成功加入队列以后，调用pthread_cond_signal函数，通知阻塞等待的线程继续执行。上面这个过程是共享变量使用的基本模式:</p>
+<ul>
+<li>加锁</li>
+<li>置条件为真(这里是任务入队列)</li>
+<li>通知</li>
+<li>解锁</li>
+</ul>
+<h2 id="任务出队列"><a href="#任务出队列" class="headerlink" title="任务出队列"></a>任务出队列</h2><p>我们已经做好了任务初始化的工作，并且可以在队列里面放置新的任务，那么当队列里面有任务的时候，我们在第一步初始化的时候开启的后台线程就会调用bioProcessBackgroundJobs函数进行任务处理，其处理主要代码如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">bioProcessBackgroundJobs</span><span class="params">(<span class="keyword">void</span> *arg)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> type = (<span class="keyword">unsigned</span> <span class="keyword">long</span>) arg;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">bio_job</span> *<span class="title">job</span>;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">        listNode *ln;</span><br><span class="line"></span><br><span class="line">        pthread_mutex_lock(&amp;bio_mutex[type]);        </span><br><span class="line">        <span class="keyword">if</span> (listLength(bio_jobs[type]) == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">//条件不成立,等待</span></span><br><span class="line">            pthread_cond_wait(&amp;bio_condvar[type],&amp;bio_mutex[type]);</span><br><span class="line">            <span class="comment">//被通知以后,停止阻塞,重新判断条件</span></span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//条件成立,直接执行</span></span><br><span class="line">        ln = listFirst(bio_jobs[type]);</span><br><span class="line"></span><br><span class="line">        job = ln-&gt;value;</span><br><span class="line">        <span class="comment">//取走值以后,解锁</span></span><br><span class="line">        pthread_mutex_unlock(&amp;bio_mutex[type]);</span><br><span class="line">        <span class="comment">//完成队列处理以后，根据类型调用close函数或者fsync函数。</span></span><br><span class="line">        <span class="keyword">if</span> (type == BIO_CLOSE_FILE) &#123;</span><br><span class="line">            close((<span class="keyword">long</span>)job-&gt;arg1);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (type == BIO_AOF_FSYNC) &#123;</span><br><span class="line">            fsync((<span class="keyword">long</span>)job-&gt;arg1);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            serverPanic(<span class="string">&quot;Wrong job type in bioProcessBackgroundJobs().&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        pthread_mutex_lock(&amp;bio_mutex[type]);</span><br><span class="line">        listDelNode(bio_jobs[type],ln);</span><br><span class="line">        bio_pending[type]--;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的代码主要流程是，先判断当前的队列是不是空的，如果是空的，则等待。否则，从队列中取出一个job结构，并且根据线程的类型决定调用什么函数。这里的类型通过创建线程是传如的参数获得，可以是0 或者 1。获得类型以后，从job里面取出arg1作为参数，调用close函数或者fsync函数。arg1是一个文件描述符，所以，在任务加入队列的时候，只是需要放一个文件描述符如队列，这也就是为什么bio_job结构体会设置得如此简单。</p>
+<h2 id="Aof持久化的例子"><a href="#Aof持久化的例子" class="headerlink" title="Aof持久化的例子"></a>Aof持久化的例子</h2><p>Aof 持久化是redis的两大持久化方式之一，其会以字符串的形式把对redis的每一个操作都先记录在内存的一个buffer中，然后写入文件，并且在适当的时间使用fsync将数据刷入磁盘，而调用fsync的其中一种方式就是使用上面介绍的bio系统，其使用的方式遵循了上面说的三个步骤。</p>
+<p>首先，在server.c中的main函数里面，有一个initServer函数，其内部调用了bioInit函数，完成了bio系统的初始化，这样，相关的队列结构被建立，后台线程也被创建了。在redis主循环被启动以后，会进入持久化的时机，调用flushAppendOnlyFile函数，完成aof持久化工作。这个函数会处理aof相关的配置以及优化等各类问题，在本文只关注对bio系统的使用，其相关代码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (server.aof_fsync == AOF_FSYNC_EVERYSEC)</span><br><span class="line">    sync_in_progress = bioPendingJobsOfType(BIO_AOF_FSYNC) != <span class="number">0</span>;</span><br><span class="line">......</span><br><span class="line">......</span><br><span class="line"><span class="keyword">if</span> (!sync_in_progress) aof_background_fsync(server.aof_fd);</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">aof_background_fsync</span><span class="params">(<span class="keyword">int</span> fd)</span> </span>&#123;</span><br><span class="line">    bioCreateBackgroundJob(BIO_AOF_FSYNC,(<span class="keyword">void</span>*)(<span class="keyword">long</span>)fd,<span class="literal">NULL</span>,<span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>可以看到，其通过bioPendingJobsOfType来检查当前队列处理的情况，并且调用bioCreateBackgroundJob来讲aof任务加入队列。由于在前面已经完成了线程的创建，在队列中有任务的时候，线程就会启动，并且通过上面讲的fsync函数完成持久化操作。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Redis的Bio是一个非常好的在实际系统中使条件变量的例子.</p>
+<h2 id="相关文献"><a href="#相关文献" class="headerlink" title="相关文献"></a>相关文献</h2><p><a target="_blank" rel="noopener" href="http://redis.io/">[1] Redis官网</a><br><a href="https://yiwenshao.github.io/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/">[2] 条件变量与锁</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redis/" rel="tag"># Redis</a>
+              <a href="/tags/%E5%B9%B6%E5%8F%91/" rel="tag"># 并发</a>
+              <a href="/tags/%E7%94%9F%E4%BA%A7%E8%80%85%E6%B6%88%E8%B4%B9%E8%80%85/" rel="tag"># 生产者消费者</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016/11/05/%E6%9D%A1%E4%BB%B6%E5%8F%98%E9%87%8F%E4%B8%8E%E9%94%81/" rel="prev" title="条件变量与锁">
+                  <i class="fa fa-chevron-left"></i> 条件变量与锁
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016/11/09/%E5%A4%9A%E7%BA%BF%E7%A8%8B%E7%9A%84%E6%95%B0%E6%8D%AE%E7%AB%9E%E4%BA%89%E9%97%AE%E9%A2%98/" rel="next" title="多线程的数据竞争问题">
+                  多线程的数据竞争问题 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/mist/" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+</body>
+</html>
