@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="之前的文章 ”CryptDB原理概述“ 介绍了CryptDB的基本原理，接下来从代码的角度介绍其实现原理。本文首先关注mysql-proxy的lua脚本与CryptDB加密库的交互过程。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CryptDB代码分析1-lua与加密库">
+<meta property="og:url" content="https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="之前的文章 ”CryptDB原理概述“ 介绍了CryptDB的基本原理，接下来从代码的角度介绍其实现原理。本文首先关注mysql-proxy的lua脚本与CryptDB加密库的交互过程。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-02-26T06:18:54.000Z">
+<meta property="article:modified_time" content="2018-02-26T06:18:54.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="CryptDB">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/","path":"2018/02/26/CryptDB代码分析1-lua与加密库/","title":"CryptDB代码分析1-lua与加密库"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CryptDB代码分析1-lua与加密库 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%8D%E6%9C%9F%E5%87%86%E5%A4%87"><span class="nav-number">1.</span> <span class="nav-text">前期准备</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mysql-proxy%E7%9A%84%E4%B8%8ECryptDB%E7%9A%84%E4%BA%A4%E4%BA%92"><span class="nav-number">2.</span> <span class="nav-text">mysql-proxy的与CryptDB的交互</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%BB%BA%E7%AB%8B%E8%BF%9E%E6%8E%A5"><span class="nav-number">2.1.</span> <span class="nav-text">客户端建立连接</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%A6%BB%E5%BC%80"><span class="nav-number">2.2.</span> <span class="nav-text">客户端离开</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%9A%84%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B"><span class="nav-number">2.3.</span> <span class="nav-text">客户端的命令执行流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%A4%E4%B8%AA%E6%89%A7%E8%A1%8C%E7%9A%84%E4%BE%8B%E5%AD%90"><span class="nav-number">2.4.</span> <span class="nav-text">两个执行的例子</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CryptDB代码分析1-lua与加密库
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-02-26 14:18:54" itemprop="dateCreated datePublished" datetime="2018-02-26T14:18:54+08:00">2018-02-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Cryptdb%E7%9A%84%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0/" itemprop="url" rel="index"><span itemprop="name">Cryptdb的设计与实现</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><a href="https://yiwenshao.github.io/2017/05/01/Cryptdb%E5%8E%9F%E7%90%86%E6%A6%82%E8%BF%B0/#more">之前的文章 ”CryptDB原理概述“</a> 介绍了CryptDB的基本原理，接下来从代码的角度介绍其实现原理。本文首先关注mysql-proxy的lua脚本与CryptDB加密库的交互过程。</p>
+<span id="more"></span>
+
+<h3 id="前期准备"><a href="#前期准备" class="headerlink" title="前期准备"></a>前期准备</h3><p>在进行源码阅读和调试之前，首先需要进行CryptDB的安装。 之前已经对<a href="https://yiwenshao.github.io/2016/11/12/Cryptdb%E5%9C%A8Ubuntu16-04%E4%B8%8A%E7%9A%84%E5%AE%89%E8%A3%85/">CryptDB在ubuntu 16.04上的安装</a>做过介绍。也可以使用我在github上共享的项目：<a target="_blank" rel="noopener" href="https://github.com/yiwenshao/Practical-Cryptdb">https://github.com/yiwenshao/Practical-Cryptdb</a>，里面对原始的安装脚本做了小改，在ubuntu16.04只要执行INSTALL.sh 就可以完成全部的安装工作。</p>
+<p>安装完成以后，首先执行如下的命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir shadow</span><br><span class="line">mysql-proxy --defaults-file=./mysql-proxy.cnf --proxy-lua-script=wrapper.lua</span><br></pre></td></tr></table></figure>
+
+<p>启动<a target="_blank" rel="noopener" href="https://downloads.mysql.com/docs/mysql-proxy-en.pdf">mysql-proxy[1]</a>，然后就可以通过MySQL的客户端连接mysql-proxy来完成数据库操作。 所有SQL语句首先经过mysql-proxy的加密处理， 然后转发给MySQL服务器。 对于MySQL服务器的返回结果， 也是先转发给mysql-proxy， 经过解密处理以后返回给客户端。</p>
+<p>mysql-proxy通过lua脚本调用CryptDB的加密库来完成SQL语句的加密操作，而上面建立的shadow目录则是为了保存一个embedded模式的MySQL数据库， 里面存储了密钥以及加密洋葱的结构的等相关信息。</p>
+<p>所以，接下来，我们先从lua脚本的入口出发，看一个SQL语句在加密过程中会经过哪些模块。</p>
+<h3 id="mysql-proxy的与CryptDB的交互"><a href="#mysql-proxy的与CryptDB的交互" class="headerlink" title="mysql-proxy的与CryptDB的交互"></a>mysql-proxy的与CryptDB的交互</h3><p>mysql-proxy提供了如下几个函数， 在客户端执行SQL的不同阶段， 会调用这几个函数， 这些函数实现在 <strong>wrapper.lua</strong> 中：</p>
+<ul>
+<li>read_auth()</li>
+<li>disconnect_client()</li>
+<li>read_query(packet)</li>
+<li>read_query_result(inj)</li>
+</ul>
+<p>在上面的四个函数的实现中，调用了CryptDB的加密库中的几个函数，这些函数实现在 <strong>mysqlproxy/ConnectWrapper.cc</strong> 中，分别是：</p>
+<ul>
+<li>connect</li>
+<li>disconnect</li>
+<li>rewrite</li>
+<li>next</li>
+</ul>
+<p>所以，所有的CryptDB操作，都是以上面的8个函数为基础的。对于CryptDB加密库而言，里面的<strong>connect</strong>以及<strong>disconnect</strong> 只在客户端建立连接和客户端离开的时候被调用，所有的加解密功能都是通过<strong>rewrite</strong>和<strong>next</strong>这两个函数来完成，这两个函数就是CryptDB所有功能的入口。</p>
+<p>回到mysql-proxy的lua脚本中的四个函数，可以分以下三个阶段来介绍。</p>
+<h4 id="客户端建立连接"><a href="#客户端建立连接" class="headerlink" title="客户端建立连接"></a>客户端建立连接</h4><p>在这个阶段，lua脚本中的函数read_auth被调用，其内部调用CryptDB的函数<strong>connect</strong>. 在这个阶段，需要为每个客户端建立一个WrapperState结构来保存相关的信息。不同的客户端通过ip+port来标识，多个客户端的信息则通过一个如下的map结构来进行保存：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">std::map&lt;std::string, WrapperState*&gt; clients;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>要使用加密库，还需要进行适当的初始化，并且多个client之间有共享状态。所以，如果当前连接进来的是第一个客户端，则需要对这个共享状态进行初始化，其对应的是一个变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SharedProxyState * shared_ps//多个client的共享状态</span><br></pre></td></tr></table></figure>
+
+
+
+
+<h4 id="客户端离开"><a href="#客户端离开" class="headerlink" title="客户端离开"></a>客户端离开</h4><p>当客户端关闭的时候，lua脚本中的<strong>disconnect_client</strong>函数被调用。其内部调用CryptDB的disconnect函数。这个阶段会把map中保存的客户端的信息删除。</p>
+<h4 id="客户端的命令执行流程"><a href="#客户端的命令执行流程" class="headerlink" title="客户端的命令执行流程"></a>客户端的命令执行流程</h4><p>客户端发送命令给mysql-proxy的时候，lua脚本中的**read_query(packet)<strong>函数被调用，参数packet中包含了SQL命令。MySQL执行结果返回的时候，lua脚本中的</strong>read_query_result(inj)**函数被调用，参数inj包含了返回结果。</p>
+<ul>
+<li>首先来看read_query函数。</li>
+</ul>
+<p>当read_query 函数获取到客户端发送的明文SQL 命令的时候，会调用lua脚本中的read_query_real函数，其内部首先调用CryptDB库中的<strong>rewrite</strong>函数，完成SQL语句的改写。改写后的SQL语句保存在之前介绍过的 clients 结构中。然后调用lua脚本中的next _handler 函数，其内部调用CryptDB库中的next函数。在next函数中，首先执行函数获得一个参数result_type，分为三种情况，根据不同的结果选择不同的执行流程，包含了SQL命令执行的所有情况，分别如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//mysqlproxy/ConnectWrapper.cc</span><br><span class="line"></span><br><span class="line">switch (result_type) &#123;</span><br><span class="line">	case AbstractQueryExecutor::ResultType::QUERY_COME_AGAIN: &#123;</span><br><span class="line">	//返回sql语句给lua脚本，执行结果再次进入该函数处理</span><br><span class="line">	&#125;</span><br><span class="line">	case AbstractQueryExecutor::ResultType::QUERY_USE_RESULTS:&#123;</span><br><span class="line">	//返回sql语句给lua脚本，执行结果直接返回客户端</span><br><span class="line">	&#125;</span><br><span class="line">	case AbstractQueryExecutor::ResultType::RESULTS:&#123;</span><br><span class="line">	//返回解密结果给lua脚本，并由mysql-proxy返回给客户端</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>对于一般的SQL语句的执行，分为两种情况，第一种是直接进入QUERY_USE_RESULTS分支，返回SQL语句给lua脚本，SQL执行的结果直接返回给客户端。 第二种是进入第一个分支QUERY_COME_AGAIN，返回SQL语句给lua脚本转发到MySQL执行，返回的结果再次进入next函数，执行并且进入第三个分支，返回解密的结果给客户端。</p>
+<p>另外，对于有些语句，并不需要调用rewrite函数进行加密，在lua脚本的阶段直接过滤了，这些情况就更加简单。</p>
+<ul>
+<li>然后来看read _query_results阶段。</li>
+</ul>
+<p>当上面介绍的加密SQL语句发送给MySQL执行，并返回执行结果给mysql-proxy的时候，会调用lua脚本中的**read _query_results(inj)**函数。如果在read_query阶段进入了第二个分支，那么lua脚本会设置一个全局变量skip为true，read_query_results的处理就被跳过，直接返回结果给客户端。如果在read_query阶段进入了第一个分支，则会在这里再次调用next_handler函数，从而进入next函数，再次执行并进入switch分支的判断流程。</p>
+<h4 id="两个执行的例子"><a href="#两个执行的例子" class="headerlink" title="两个执行的例子"></a>两个执行的例子</h4><p>一些解密的细节以及类的介绍将在后续的文章中给出。在这里，给出两个SQL语句执行的例子，用于说明执行过程中lua脚本以及CryptDB库中的几个函数的调用过程，以及几个主要执行分支的含义。</p>
+<ul>
+<li><strong>show databases;</strong></li>
+</ul>
+<p>该命令的处理流程：<br>首先进入read_query，内部调用CryptDB的<strong>rewrite</strong>函数进行加密，然后调用lua中的next_handler，内部调用CryptDB的<strong>next</strong>函数，根据上面介绍的，进入switch的第二个分支，表示执行命令的结果不需要处理，直接返回给客户端。然后给lua脚本传递改写以后的命令。</p>
+<p>再次回到lua脚本的next_handler函数，其处理了query results分支，将获得的命令转发给MySQL执行。执行完成以后的结果返回给mysql-proxy的时候，会调用read_query_result函数。根据上面介绍的，由于在read_query阶段进入了第二个分支，这里的处理会被跳过，也就是不做任何处理，结果直接返回给客户端。这样，客户端就得到了<strong>show databases</strong>的执行结果。</p>
+<ul>
+<li><strong>select * from student;</strong></li>
+</ul>
+<p>我们假设已经有了一张表，对其进行select操作，其对应的执行流程如下。<br>首先进入read_query，内部调用CryptDB的<strong>rewrite</strong>函数进行SQL语句的加密，返回以后调用lua中的next_handler函数，内部调用CryptDB的<strong>next</strong>函数，根据上面介绍的，进入第一个分支：QUERY_COME_AGAIN。返回加密以后的SQL命令给lua脚本。</p>
+<p>在lua脚本中，next_handler处理了again分支，发送加密命令给MySQL，获得select返回的加密结果以后，lua脚本中的read_query_results被调用。由于在read_query阶段进入了第一个分支，这里会继续调用next_handler函数，并进入到<strong>next</strong>函数，执行获得result_type，然后这次进入到RESULTS分支。在lua脚本中，处理了results分支，将解密后的结果返回给客户端，这样就完成了整个流程。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>本文介绍了SQL加密执行过程中，mysql-proxy使用的lua脚本与CryptDB的加密库的交互过程，其中主要的几个函数是lua脚本中的read_query，read_query_results，以及CryptDB库中的rewrite和next。代码位于wrapper.lua以及mysqlproxy/ConnectWrapper.cc中。</p>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><ul>
+<li><a target="_blank" rel="noopener" href="https://downloads.mysql.com/docs/mysql-proxy-en.pdf">1. MySQL-Proxy相关: https://downloads.mysql.com/docs/mysql-proxy-en.pdf </a></li>
+<li><a href="https://yiwenshao.github.io/2017/05/01/Cryptdb%E5%8E%9F%E7%90%86%E6%A6%82%E8%BF%B0/#more">CryptDB的原理介绍: https://yiwenshao.github.io/2017/05/01/Cryptdb原理概述/#more</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/yiwenshao/Practical-Cryptdb">CryptDB的安装脚本: https://github.com/yiwenshao/Practical-Cryptdb</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/cryptdb-org/cryptdb-wiki/wiki/New-Pipeline">作者的wiki说明: https://github.com/cryptdb-org/cryptdb-wiki/wiki/New-Pipeline</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Yiwen Shao
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/" title="CryptDB代码分析1-lua与加密库">https://yiwenshao.github.io/2018/02/26/CryptDB代码分析1-lua与加密库/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/CryptDB/" rel="tag"># CryptDB</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2017/05/01/Cryptdb%E5%8E%9F%E7%90%86%E6%A6%82%E8%BF%B0/" rel="prev" title="Cryptdb原理概述(1)">
+                  <i class="fa fa-chevron-left"></i> Cryptdb原理概述(1)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/03/06/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%902-handler%E4%B8%8Eexecutor/" rel="next" title="CryptDB代码分析2-handler与executor">
+                  CryptDB代码分析2-handler与executor <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments gitalk-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.css" integrity="sha256-AJnUHL7dBv6PGaeyPQJcgQPDjt/Hn/PvYZde1iqfp8U=" crossorigin="anonymous">
+
+<script class="next-config" data-name="gitalk" type="application/json">{"enable":true,"github_id":"yiwenshao","repo":"yiwenshao.github.io","client_id":"caf54f5cbf7133c52626","client_secret":"4867d3f7bf139b0fc49128bed4a80fc34574f1df","admin_user":null,"distraction_free_mode":true,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":null,"js":{"url":"https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.min.js","integrity":"sha256-Pmj85ojLaPOWwRtlMJwmezB/Qg8BzvJp5eTzvXaYAfA="},"path_md5":"31851190f7cdc5c90b96182be19d60e8"}</script>
+<script src="/js/third-party/comments/gitalk.js"></script>
+
+</body>
+</html>

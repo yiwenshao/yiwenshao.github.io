@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="之前介绍了CryptDB中元数据管理相关的类，以及这些类在MySQL中的存储格式。本文介绍这些元数据是什么时候创建的，在什么时候通过什么方式写入数据库，在什么时候被读取，以及元数据在什么地方被使用。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CryptDB代码分析4-加密元数据读写">
+<meta property="og:url" content="https://yiwenshao.github.io/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="之前介绍了CryptDB中元数据管理相关的类，以及这些类在MySQL中的存储格式。本文介绍这些元数据是什么时候创建的，在什么时候通过什么方式写入数据库，在什么时候被读取，以及元数据在什么地方被使用。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/classSchemaInfo.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/hierchy.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/classDelta.png">
+<meta property="article:published_time" content="2018-03-19T02:50:16.000Z">
+<meta property="article:modified_time" content="2018-03-19T02:50:16.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="CryptDB">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/classSchemaInfo.png">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/","path":"2018/03/19/CryptDB代码分析4-加密元数据读写/","title":"CryptDB代码分析4-加密元数据读写"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CryptDB代码分析4-加密元数据读写 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B8%8E%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%8F%96"><span class="nav-number">1.</span> <span class="nav-text">初始化与元数据读取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE%E5%86%99%E5%85%A5"><span class="nav-number">2.</span> <span class="nav-text">元数据写入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE%E4%BD%BF%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">元数据使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E6%96%87%E7%8C%AE"><span class="nav-number">5.</span> <span class="nav-text">相关文献</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CryptDB代码分析4-加密元数据读写
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-03-19 10:50:16" itemprop="dateCreated datePublished" datetime="2018-03-19T10:50:16+08:00">2018-03-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Cryptdb%E7%9A%84%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0/" itemprop="url" rel="index"><span itemprop="name">Cryptdb的设计与实现</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>之前介绍了CryptDB中元数据管理相关的类，以及这些类在MySQL中的存储格式。本文介绍这些元数据是什么时候创建的，在什么时候通过什么方式写入数据库，在什么时候被读取，以及元数据在什么地方被使用。</p>
+<span id="more"></span>
+
+
+<h3 id="初始化与元数据读取"><a href="#初始化与元数据读取" class="headerlink" title="初始化与元数据读取"></a>初始化与元数据读取</h3><p><strong>SchemaInfo 与 SchemaCache：</strong></p>
+<p><a href="https://yiwenshao.github.io/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/">上一篇文章</a>介绍了从DatabaseMeta往下的层次化结构，用来表示元数据。实际上，还有上面这两个结构也是元数据的存储有关。其中SchemaInfo在DatabaseMeta的上一层，其继承结构如下：</p>
+<p><img src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/classSchemaInfo.png"></p>
+<p>与上一篇文章介绍的类似，SchemaInfo继承了MappedDBMeta，通过Key-Value的形式保存了当前CryptDB中创建了的所有数据库信息。而SchemaCache则是对SchemaInfo进行简单的封装，其主要成员定义如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">class SchemaCache &#123;</span><br><span class="line">public:</span><br><span class="line">    ....</span><br><span class="line">private:</span><br><span class="line">    mutable std::shared_ptr&lt;const SchemaInfo&gt; schema;</span><br><span class="line">    //设这stale状态</span><br><span class="line">    mutable bool no_loads;</span><br><span class="line">    //随机id</span><br><span class="line">    const unsigned int id;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>我们知道，在CryptDB中，元数据是存储在本地的embedded MySQL中的。在初始化的过程中，如果这些元数据相关的MySQL表没有被建立，首先会有一个建表的过程，建表的操作位于在<a href="https://yiwenshao.github.io/2018/02/26/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%901-lua%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%BA%93/">第一篇文章</a>中介绍的connect函数中。也就是，第一个用户连接进入以后，如果还没有建立这些表，就会先初始化这些表。</p>
+<p>有了这些表以后，我们需要先有内存的数据结构来保存层次化的元数据结构。首先就是获得一个id随机的SchemaCache结构，内部包含了一个空的SchemaInfo成员。如果之前已经建立了数据库，或者数据库下已经有一些表，则需要读取embedded MySQL中的元数据，反序列化，用内存的数据结构来表示。</p>
+<p>首先看SchemaCache的成员id：初始化的时候，会给这个cache分配一个随机的id，并且设置no_loads为true。然后会进行no_loads的检查， 发现为true，则会进入initialStaleness函数执行以下sql语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO embedded_db.generic_prefix_staleness   (cache_id, stale) VALUES    (2313589110, TRUE);</span><br></pre></td></tr></table></figure>
+<p>同时将no_loads设置为false。之后会查询stale信息，通过如下的sql语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT stale FROM embedded_db.generic_prefix_staleness  WHERE cache_id = 2313589110;</span><br></pre></td></tr></table></figure>
+
+<p>由于刚才的no_loads设置，这里根据当前cache中的随机id查出来的肯定是stale为true。由于stale为ture，则会进入<strong>loadSchemaInfo</strong>的过程。相关的示例代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//代码位于main/schema.cc</span><br><span class="line">std::shared_ptr&lt;const SchemaInfo&gt;</span><br><span class="line">SchemaCache::getSchema(const std::unique_ptr&lt;Connect&gt; &amp;conn,</span><br><span class="line">                       const std::unique_ptr&lt;Connect&gt; &amp;e_conn) const &#123;</span><br><span class="line">    if (true == this-&gt;no_loads) &#123;</span><br><span class="line">        initialStaleness(e_conn);</span><br><span class="line">        this-&gt;no_loads = false;</span><br><span class="line">    &#125;</span><br><span class="line">    if (true == lowLevelGetCurrentStaleness(e_conn, this-&gt;id)) &#123;</span><br><span class="line">        this-&gt;schema =</span><br><span class="line">            std::shared_ptr&lt;SchemaInfo&gt;(loadSchemaInfo(conn, e_conn));</span><br><span class="line">    &#125;</span><br><span class="line">    return this-&gt;schema;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>经过了这个loadSchemaInfo的过程，SchemaCache中才开始有了自己的SchemaInfo，其内部包含了和磁盘数据等价的元数据。我们来看具体的实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">//代码位于main/rewrite_main.cc</span><br><span class="line">DBMeta* loadChildren(DBMeta *const parent,const std::unique_ptr&lt;Connect&gt; &amp;e_conn)&#123;</span><br><span class="line">    auto kids = parent-&gt;fetchChildren(e_conn);</span><br><span class="line">    for (auto it : kids) &#123;</span><br><span class="line">        loadChildren(it,e_conn);</span><br><span class="line">    &#125;</span><br><span class="line">    return parent;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">std::unique_ptr&lt;SchemaInfo&gt;</span><br><span class="line">loadSchemaInfo(const std::unique_ptr&lt;Connect&gt; &amp;conn,</span><br><span class="line">               const std::unique_ptr&lt;Connect&gt; &amp;e_conn)&#123;</span><br><span class="line">    loadChildren(schema.get(),e_conn);</span><br><span class="line">    return std::move(schema);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，读取SchemaInfo是一个递归调用的过程，其中loadChildren函数的第一个参数是一个DBMeta*结构，表示当前需要读取的元数据管理类， 第二个参数用于访问底层的embedded数据库读取序列化以后的数据。其基本逻辑是，对于parent，首先通过fetchChildren函数读取所有的kids，并且将读取上来的kids加入到自己内部的map结构中，然后遍历kids，对每个kid递归调用loadChildren来完成所有的数据读取。</p>
+<p>fetchChildren最早定义的MappedDBMeta中，其内部先定义了lambda表达式deserialize，该lambda表达式能用于完成反序列化以及添加类到map。 然后调用doFetchChildren函数， 内部首先读取数据库中的数据，然后调用之前定义的deserialize来完成反序列化和添加的功能，具体代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename ChildType, typename KeyType&gt;</span><br><span class="line">std::vector&lt;DBMeta *&gt;</span><br><span class="line">MappedDBMeta&lt;ChildType, KeyType&gt;::fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn)&#123;</span><br><span class="line">    std::function&lt;DBMeta *(const std::string &amp;,</span><br><span class="line">                           const std::string &amp;,</span><br><span class="line">                           const std::string &amp;)&gt;</span><br><span class="line">        deserialize =</span><br><span class="line">        [this] (const std::string &amp;key, const std::string &amp;serial,</span><br><span class="line">                const std::string &amp;id) &#123;</span><br><span class="line">            const std::unique_ptr&lt;KeyType&gt;</span><br><span class="line">                meta_key(AbstractMetaKey::factory&lt;KeyType&gt;(key));</span><br><span class="line">            auto dChild = ChildType::deserialize;</span><br><span class="line">            std::unique_ptr&lt;ChildType&gt;</span><br><span class="line">                new_old_meta(dChild(atoi(id.c_str()), serial));</span><br><span class="line">            this-&gt;addChild(*meta_key, std::move(new_old_meta));</span><br><span class="line">            return this-&gt;getChild(*meta_key);</span><br><span class="line">        &#125;;</span><br><span class="line">    return DBMeta::doFetchChildren(e_conn, deserialize);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们继续看doFetchChildren函数的实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">std::vector&lt;DBMeta *&gt;</span><br><span class="line">DBMeta::doFetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">                        std::function&lt;DBMeta *(const std::string &amp;,</span><br><span class="line">                                               const std::string &amp;,</span><br><span class="line">                                               const std::string &amp;)&gt;</span><br><span class="line">                            deserialHandler) &#123;</span><br><span class="line">    </span><br><span class="line">    const std::string table_name = MetaData::Table::metaObject();</span><br><span class="line">    // Now that we know the table exists, SELECT the data we want.</span><br><span class="line">    std::vector&lt;DBMeta *&gt; out_vec;</span><br><span class="line">    std::unique_ptr&lt;DBResult&gt; db_res;</span><br><span class="line">    //this is the id of the current class.</span><br><span class="line">    const std::string parent_id = std::to_string(this-&gt;getDatabaseID());</span><br><span class="line">    const std::string serials_query =</span><br><span class="line">        &quot; SELECT &quot; + table_name + &quot;.serial_object,&quot;</span><br><span class="line">        &quot;        &quot; + table_name + &quot;.serial_key,&quot;</span><br><span class="line">        &quot;        &quot; + table_name + &quot;.id&quot;</span><br><span class="line">        &quot; FROM &quot; + table_name +</span><br><span class="line">        &quot; WHERE &quot; + table_name + &quot;.parent_id&quot;</span><br><span class="line">        &quot;   = &quot; + parent_id + &quot;;&quot;;</span><br><span class="line">    //all the metadata are fetched here.</span><br><span class="line">    TEST_TextMessageError(e_conn-&gt;execute(serials_query, &amp;db_res),</span><br><span class="line">                          &quot;doFetchChildren query failed&quot;);</span><br><span class="line">    MYSQL_ROW row;</span><br><span class="line">    while ((row = mysql_fetch_row(db_res-&gt;n))) &#123;</span><br><span class="line">        unsigned long * const l = mysql_fetch_lengths(db_res-&gt;n);</span><br><span class="line">        assert(l != NULL);</span><br><span class="line">        const std::string child_serial_object(row[0], l[0]);</span><br><span class="line">        const std::string child_key(row[1], l[1]);</span><br><span class="line">        const std::string child_id(row[2], l[2]);</span><br><span class="line">        DBMeta *const new_old_meta =</span><br><span class="line">            deserialHandler(child_key, child_serial_object, child_id);</span><br><span class="line">        out_vec.push_back(new_old_meta);</span><br><span class="line">    &#125;</span><br><span class="line">    return out_vec;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，其首先获得parent_id，然后根据parent_id把当前parent对应的children行全部取出来，并且对每一行数据使用刚才定义的labmda函数进行反序列化处理，并且最后又以vector的形式把所有的children返回。这个时候便重新回到了loadChildren函数中，对于这个返回的vector类型children，里面的每一个元素会被遍历，对于每个元素，都采用刚才介绍的loadChildren函数来填充其内部的map。需要注意的是，和读取过程类似，对于onioneMeta，由于其内部通过vector来保存children，而不是用map，所以其fetchChindlren的定义也不同，如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">std::vector&lt;DBMeta *&gt;</span><br><span class="line">OnionMeta::fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn) &#123;</span><br><span class="line">    std::function&lt;DBMeta *(const std::string &amp;,</span><br><span class="line">                           const std::string &amp;,</span><br><span class="line">                           const std::string &amp;)&gt;</span><br><span class="line">        deserialHelper =   </span><br><span class="line">    [this] (const std::string &amp;key, const std::string &amp;serial,</span><br><span class="line">            const std::string &amp;id) -&gt; EncLayer * &#123;</span><br><span class="line">        const std::unique_ptr&lt;UIntMetaKey&gt;</span><br><span class="line">            meta_key(AbstractMetaKey::factory&lt;UIntMetaKey&gt;(key));</span><br><span class="line">        const unsigned int index = meta_key-&gt;getValue();</span><br><span class="line">        if (index &gt;= this-&gt;layers.size()) &#123;</span><br><span class="line">            this-&gt;layers.resize(index + 1);</span><br><span class="line">        &#125;</span><br><span class="line">        std::unique_ptr&lt;EncLayer&gt;</span><br><span class="line">            layer(EncLayerFactory::deserializeLayer(atoi(id.c_str()),</span><br><span class="line">                                                    serial));</span><br><span class="line">        this-&gt;layers[index] = std::move(layer);</span><br><span class="line">        return this-&gt;layers[index].get();</span><br><span class="line">    &#125;;</span><br><span class="line">    return DBMeta::doFetchChildren(e_conn, deserialHelper);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，其主要的区别在于，使用的反序列化处理函数deserialHelper不同，对于上层的deserialHelper，其内部逻辑是在map中添加新的元数据管理类，而对于OnionMeta，则是在vector中添加元数据管理类。</p>
+<p>另外，由于EncLayer是最底层的类，作为递归终止条件，其fetchChildren的实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">std::vector&lt;DBMeta *&gt;</span><br><span class="line">        fetchChildren(const std::unique_ptr&lt;Connect&gt; &amp;e_conn) &#123;</span><br><span class="line">        return std::vector&lt;DBMeta *&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p><strong>读取过程小结</strong></p>
+<p>通过上面的分析，我们就知道了元数据在内存中的存储方式。其示意图如下：</p>
+<p><img src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/hierchy.png"></p>
+<p>初始化的时候，最上层的schemaCache获得一个随机的id，并保存了一个空的SchemaInfo结构。之后，其通过上面的loadSchemaInfo机制来填充SchemaInfo里面的map。在SchemInfo这层，map中保存了所有的数据库名字以及对应的DatabaseMeta，SchemaInfo的id固定是0，所以在<strong>doFetchChildren</strong>函数中，以parent_id=0作为条件，可以获得所有序列化以后的DatabaseMeta，并且插入到SchemaInfo中。然后，所有的DatabaseMeta作为vector返回，依次再次用loadChildren函数递归处理。递归的终止条件是EncLayer，因为这个已经是最底层的类了。</p>
+<p>为了理解这个递归处理的过程，我们给出以下例子：我们假设在CryptDB中有两个数据库db1和db2，每个数据库中分别有一个表student。则初始化的过程如下：</p>
+<p><strong>1)</strong> 初始化一个schemaCache，有一个随机的id，内部有空的schemaInfo，并且通过no_loads和stale的机制，出发loadSchemaInfo函数的调用<br><strong>2)</strong>  调用loadSchemaInfo函数，内部使用loadChildren的递归调用，首先在schemaInfo中插入db1和db2对应的DatabaseMeta，并且返回一个DatabaseMeta的vector，里面有两个元素<br><strong>3)</strong>  递归对vector中的第一个DatabaseMeta处理，在其内部插入student表对应的TableMeta，返回一个TableMeta的vector<br><strong>4)</strong>  递归对vector中的第一个TableMeta进行处理，在其内部插入表对应的FieldMeta，返回一个FieldMeta的vector<br><strong>5)</strong>  递归对vector中的第一个FieldMeta进行处理，内部插入Field对应的OnionMeta，返回一个OnionMeta的vector<br><strong>6)</strong>  递归对vector中的第一个OnionMeta进行处理，内存插入对应的EncLayers，返回一个Enclayers的vector<br><strong>7)</strong>  递归对vector中的第一个EncLayers进行出来，什么也不做，返回一个空的vector，这样递归开始重新进入上一层<br><strong>8)</strong>  …..<br><strong>9)</strong>   经过一系列的处理，假设从上面步骤3)开始的第一次递归处理结束了，那么schemaInfo中的map里面已经有了两个DatabaseMeta，并且第一个DatabaseMeta内部已经有了TableMeta，TableMeta内部有了FieldMeta，以此类推。 而此时第二个DatabaseMeta还是空的，所以继续步骤3)中的循环处理，递归处理vector中的第二个DatabaseMeta继续3-8中的过程。</p>
+<p>经过以上的过程，内存的元数据和磁盘中的数据就一致了。如果磁盘中的数据因为元数据的写入而发生变化，则会在当前的schemaCache对应的行中再次设置stale值为true。每次命令处理的时候，会去查这个stale的值，如果发现为true，则重复执行上面的loadSchema操作来更新内存的元数据。所以SchemaCache中的随机id，就是为了记录这个stale的情况，从而可以决定要不要使用上面的元数据导入函数来读取磁盘中的元数据。</p>
+<p>接下来介绍什么时候会往磁盘中写入元数据，以及写入的机制是怎么样的。</p>
+<h3 id="元数据写入"><a href="#元数据写入" class="headerlink" title="元数据写入"></a>元数据写入</h3><p>从上面的分析可以看到，mysql-proxy端的元数据，主要存储了从database到EncLayer的一个层次化结构。所以，元数据写入对应了两个常见的语句：CREATE DATABASE 和CREATE TABLE。前者会导致写入一行DatabaseMeta数据，后者则会导致写入多行数据，包括一行TableMeta以及下层的多个FieldMeta，OnionMeta，和EncLayer。</p>
+<p>我们首先来考虑<strong>CREATE DATABASE</strong> 语句造成的写入：</p>
+<p><strong>delta的创建</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">std::unique_ptr&lt;DatabaseMeta&gt; dm(new DatabaseMeta());</span><br><span class="line">            a.deltas.push_back(std::unique_ptr&lt;Delta&gt;(</span><br><span class="line">                        new CreateDelta(std::move(dm), a.getSchema(),</span><br><span class="line">                                        IdentityMetaKey(dbname))));</span><br><span class="line">return new DDLQueryExecutor(*copyWithTHD(lex), std::move(a.deltas));</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在执行<strong>CREATE DATABASE</strong>语句的时候，会新建一个空的DatabaseMeta用于代表这个新增加的数据库，然后以此为基础建立一个CreateDelta结构。Delta系列的类用于表示<strong>元数据的变化</strong>，其相关类的继承结构如下图所示：</p>
+<p><img src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph/project/cryptdb/4/classDelta.png"></p>
+<p>Delta的相关定义如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">class Delta &#123;</span><br><span class="line">public:</span><br><span class="line">    Delta(const DBMeta &amp;parent_meta) : parent_meta(parent_meta) &#123;&#125;</span><br><span class="line">    virtual bool apply(const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">                       TableType table_type) = 0;</span><br><span class="line">protected:</span><br><span class="line">    const DBMeta &amp;parent_meta;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>其内部有一个parent_meta。当新添加或删除元数据的时候，这个元数据类有一个上层的类，就是parent_meta。比如对于要添加的DatabaseMeta来说，上层的类就是SchemaInfo。添加了DatabaseMeta以后，还需要同时保存一个信息：这个DatabaseMeta对应的数据库名字。所以，在下层的AbstractCreateDelta就对Delta进行了如下的扩展：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename KeyType&gt;</span><br><span class="line">class AbstractCreateDelta : public Delta &#123;</span><br><span class="line">public:</span><br><span class="line">    AbstractCreateDelta(const DBMeta &amp;parent_meta,</span><br><span class="line">                        const KeyType &amp;key)</span><br><span class="line">        : Delta(parent_meta), key(key) &#123;&#125;</span><br><span class="line">protected:</span><br><span class="line">    const KeyType key;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后来看CreateDelta的定义：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">class CreateDelta : public AbstractCreateDelta&lt;IdentityMetaKey&gt; &#123;</span><br><span class="line">public:</span><br><span class="line">    CreateDelta(std::unique_ptr&lt;DBMeta&gt; &amp;&amp;meta,</span><br><span class="line">                const DBMeta &amp;parent_meta,</span><br><span class="line">                IdentityMetaKey key)</span><br><span class="line">        : AbstractCreateDelta(parent_meta, key), meta(std::move(meta)) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    bool apply(const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">               TableType table_type);</span><br><span class="line">    std::map&lt;const DBMeta *, unsigned int&gt; &amp; get_id_cache()&#123;return id_cache;&#125;</span><br><span class="line">private:</span><br><span class="line">    const std::unique_ptr&lt;DBMeta&gt; meta;</span><br><span class="line">    std::map&lt;const DBMeta *, unsigned int&gt; id_cache;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，其添加了一个新的成员：meta。用来表示当前的元数据类。这样，我们就可以理解下面语句的含义了：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::unique_ptr&lt;Delta&gt;( new CreateDelta(std::move(dm), a.getSchema(),IdentityMetaKey(dbname)));</span><br></pre></td></tr></table></figure>
+
+<p>其表示新添加了Delta记录：增加了一个DatabaseMeta，其对应的数据库名是dbname，用IdentifyMetaKey来进行保存。其上层的类是SchemaInfo(a.getSchema调用就是返回SchemaInfo)。</p>
+<p>已经有了内存的databaseMeta，这样就有了内存数据和磁盘数据的不一致，就需要一个写入磁盘来保持同步的过程。这个动作通过如下的函数来实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">bool</span><br><span class="line">writeDeltas(const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">            const std::vector&lt;std::unique_ptr&lt;Delta&gt; &gt; &amp;deltas,</span><br><span class="line">            Delta::TableType table_type)&#123;</span><br><span class="line">    for (const auto &amp;it : deltas) &#123;</span><br><span class="line">        RFIF(it-&gt;apply(e_conn, table_type));</span><br><span class="line">    &#125;</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，其是通过对delta调用apply函数来实现写入数据库的，具体apply函数的实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">bool CreateDelta::apply(const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">                        Delta::TableType table_type)&#123;</span><br><span class="line">     //获取数据库表名</span><br><span class="line">    const std::string &amp;table_name = tableNameFromType(table_type);</span><br><span class="line">    //写入</span><br><span class="line">    const bool b =</span><br><span class="line">        create_delta_helper(this,e_conn,table_type,table_name,</span><br><span class="line">                  *meta.get(), parent_meta, key, parent_meta.getDatabaseID());</span><br><span class="line">    return b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>在create_delta_helper函数中，也是一个递归调用的过程。其主要代码如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">// </span><br><span class="line">static</span><br><span class="line">bool create_delta_helper(CreateDelta* this_is, const std::unique_ptr&lt;Connect&gt; &amp;e_conn,</span><br><span class="line">                         Delta::TableType table_type, std::string table_name,</span><br><span class="line">                         const DBMeta &amp;meta_me, const DBMeta &amp;parent,</span><br><span class="line">                         const AbstractMetaKey &amp;meta_me_key, const unsigned int parent_id) &#123;</span><br><span class="line">        const std::string &amp;child_serial = meta_me.serialize(parent);</span><br><span class="line">        const std::string &amp;serial_key = meta_me_key.getSerial();      </span><br><span class="line">        //用于插入元数据的SQL语句</span><br><span class="line">        const std::string &amp;query =</span><br><span class="line">            &quot; INSERT INTO &quot; + table_name +</span><br><span class="line">            &quot;    (serial_object, serial_key, parent_id, id) VALUES (&quot;</span><br><span class="line">            &quot; &#x27;&quot; + esc_child_serial + &quot;&#x27;,&quot;</span><br><span class="line">            &quot; &#x27;&quot; + esc_serial_key + &quot;&#x27;,&quot;</span><br><span class="line">            &quot; &quot; + std::to_string(parent_id) + &quot;,&quot;</span><br><span class="line">            &quot; &quot; + std::to_string(old_object_id.get()) + &quot;);&quot;;</span><br><span class="line">        //执行SQL语句插入数据    </span><br><span class="line">	e_conn-&gt;execute(query);</span><br><span class="line">	</span><br><span class="line">	std::function&lt;bool(const DBMeta &amp;)&gt; localCreateHandler =</span><br><span class="line">            [&amp;meta_me, object_id, this_is,&amp;e_conn,table_type,table_name]</span><br><span class="line">                (const DBMeta &amp;child)&#123;</span><br><span class="line">                return create_delta_helper(this_is,e_conn, table_type, table_name,</span><br><span class="line">                             child, meta_me, meta_me.getKey(child), object_id);</span><br><span class="line">            &#125;;</span><br><span class="line">         //对于当前DBMeta的children，执行同样的操作   </span><br><span class="line">        return meta_me.applyToChildren(localCreateHandler);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<p>在一层调用中， meta_me和meta_me_key分别表示当前需要写入的DBMeta类，以及其对应的key。对于本例来说，就是DatabaseMeta以及对应的IdentifyMetaKey。这两个类需要被序列化，并且写入数据库。parent_id也需要被写入数据库。至于当前DBMeta本身的id，则是通过MySQL的auto increment结合last_insert_id()来得到的。</p>
+<p>下面就是最后执行写入操作的SQL语句： </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">//由于auto increment，实际写入的id是1</span><br><span class="line">INSERT INTO embedded_db.generic_prefix_BleedingMetaObject    (serial_object, serial_key, parent_id, id) VALUES ( &#x27;Serialize to associate database name with DatabaseMeta&#x27;, &#x27;db&#x27;, 0, 0);</span><br><span class="line">INSERT INTO embedded_db.generic_prefix_MetaObject    (serial_object, serial_key, parent_id, id) VALUES ( &#x27;Serialize to associate database name with DatabaseMeta&#x27;, &#x27;temp&#x27;, 0, 1);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>CryptDB建立了两个同样格式的元数据表，在不同的SQL执行阶段写两个不同的元数据表，最后保证这两个表中的数据是一致的。</p>
+<p><strong>然后来看CREATE TABLE语句造成的变化：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">// ddl_handler.cc</span><br><span class="line">AbstractQueryExecutor *</span><br><span class="line">CreateTableHandler::rewriteAndUpdate(Analysis &amp;a, LEX *lex, const Preamble &amp;pre) const&#123;</span><br><span class="line">        //创建Tablemeta，里面是空的</span><br><span class="line">	std::unique_ptr&lt;TableMeta&gt; tm(new TableMeta(true, true));</span><br><span class="line">	//createAndRewriteField函数中遍历table的field并且为每个field创建FieldMeta，然后添加到TableMeta的map中</span><br><span class="line">	...</span><br><span class="line">	...	</span><br><span class="line">	</span><br><span class="line">	//创建CreateDelta进行记录</span><br><span class="line">	a.deltas.push_back(std::unique_ptr&lt;Delta&gt;(</span><br><span class="line">                            new CreateDelta(std::move(tm),</span><br><span class="line">                                            a.getDatabaseMeta(pre.dbname),</span><br><span class="line">                                            IdentityMetaKey(pre.table))));</span><br><span class="line">	...</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">FieldMeta::FieldMeta()&#123;</span><br><span class="line">	//在上面介绍的FieldMeta的构造函数中，调用onion_layout，构造</span><br><span class="line">	//对应的OnionMeta并且添加到对应的FieldMeta的map中</span><br><span class="line">	init_onions_layout();</span><br><span class="line">	</span><br><span class="line">	</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">OnionMeta::OnionMeta&#123;</span><br><span class="line">	//调用EncLayerFactory::encLayer函数来构造洋葱的加密层，添加到onionMeta的vector中</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>CREATE TABLE语句的处理流程如上所示，我们只截取和本文相关的部分示意代码，介绍调用了哪些函数，以及这些函数分别做什么用。 需要注意的有以下几点：</p>
+<ul>
+<li>对于CREATE TABLE语句，首先会调用TableMeta的构造函数，构造一个<strong>空的TableMeta</strong></li>
+<li>对于table中的Field，则分别调用FieldMeta的构造函数，构造多个FieldMeta，并添加到TableMeta的map中</li>
+<li><strong>FieldMeta的构造函数内</strong>，已经有OnionMeta的构造和添加的代码。而<strong>OnionMeta的构造函数</strong>内也包含了EncLayer的构造和添加</li>
+<li>所以，在FieldMeta的层次来看，构造自身并且添加到TableMeta以后，整个层次化的元数据管理类就全部构造完成</li>
+<li>最后添加的CreateDelta只要对table这层来做就可以，不需要对每层的类都添加delta</li>
+</ul>
+<p>这样，通过上面的过程，我们就已经建立了内存中的从TableMeta到EncLayer的层次化结构。并且通过delta记录这个TableMeta，新的table的名字，以及其上层的DatabaseMeta。</p>
+<p>在元数据写入的时候，依然是使用apply函数，递归做处理。我们以一个例子来进行说明：</p>
+<p>假设我们执行这样的语句：**CREATE TABLE student (id integer)**并且为这个列id设置两个洋葱DET和OPE，其中DET包含了两个层det和rnd，OPE包含两个层ope和rnd。则其构造和写入的顺序如下：</p>
+<p>首先是内存数据结构建立阶段：</p>
+<p>**1)**为student构造TableMeta<br>**2)**为id构造FieldMeta<br>**3)**FieldMeta内部构造两个onionMeta，分别代表DET和OPE，而onionMeta构造的时候，也各自初始化了两个洋葱层<br>**4)**将FieldMeta添加到TableMeta的内部map中<br>**5)**构造delta来记录这个元数据的变化</p>
+<p>然后是数据写入磁盘阶段：<br>**1)**写入TableMeta<br>**2)**写入id对应的FieldMeta<br>**3)**写入DET对应的OnionMeta<br>**4)**写入DET中的第一个Enclayer<br>**5)**写入DET中的第二个Enclayer<br>**6)**写入OPE中的第一个EncLayer<br>**7)**写入OPE中的第二个EncLayer</p>
+<h3 id="元数据使用"><a href="#元数据使用" class="headerlink" title="元数据使用"></a>元数据使用</h3><p>元数据的使用主要体现在层次化的加密和解密上。从DatabaseMeta开始的往下到OnionMeta的结构都是起辅助作用，是为了定位最后实际产生作用的EncLayer。得到了EncLayer以后，就可以调用其加解密相关的函数，来实现洋葱加密和解密功能，相关代码如下。</p>
+<p><strong>层次加密：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Item *</span><br><span class="line">encrypt_item_layers(const Item &amp;i, onion o, const OnionMeta &amp;om,</span><br><span class="line">                    const Analysis &amp;a, uint64_t IV) &#123;</span><br><span class="line">    const auto &amp;enc_layers = a.getEncLayers(om);</span><br><span class="line">    const Item *enc = &amp;i;</span><br><span class="line">    Item *new_enc = NULL;</span><br><span class="line">    for (const auto &amp;it : enc_layers) &#123;</span><br><span class="line">        new_enc = it-&gt;encrypt(*enc, IV);</span><br><span class="line">        enc = new_enc;</span><br><span class="line">    &#125;</span><br><span class="line">    return new_enc;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><strong>层次解密：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Item *</span><br><span class="line">decrypt_item_layers(const Item &amp;i, const FieldMeta *const fm, onion o,</span><br><span class="line">                    uint64_t IV) &#123;</span><br><span class="line">    const Item *dec = &amp;i;</span><br><span class="line">    const OnionMeta *const om = fm-&gt;getOnionMeta(o);</span><br><span class="line">    const auto &amp;enc_layers = om-&gt;getLayers();</span><br><span class="line">    for (auto it = enc_layers.rbegin(); it != enc_layers.rend(); ++it) &#123;</span><br><span class="line">        out_i = (*it)-&gt;decrypt(*dec, IV);</span><br><span class="line">        assert(out_i);</span><br><span class="line">        dec = out_i;</span><br><span class="line">    &#125;</span><br><span class="line">    return out_i;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，加解密操作都是针对Item类型来完成，并且都是需要获得EncLayer，而为了获得正确的EncLayer，则需要上述的层次化数据结构。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>在CryptDB中，为了完成层次化的加密和解密的功能，需要构造加密层相关的类，以及从database开始的层次化结构来对加密层进行管理。本文介绍了这些元数据从磁盘中载入到内存以及从内存中写入磁盘的过程中涉及到的关键类和函数。本文涉及的代码细节比较多， 重点需要关注的是<strong>内存的数据结构表示</strong>，<strong>loadSchemInfo</strong>，<strong>stale查询机制</strong>以及<strong>delta的记录与写入</strong>。具体这些机制怎么和实际的SQL执行结合在一起，将在后续的文章中介绍，也可以看参考文献的链接，里面包含了我正在加注释的源码。 </p>
+<p>下篇文章将介绍加密算法，以及加密算法和元数据类的联系方式。</p>
+<h3 id="相关文献"><a href="#相关文献" class="headerlink" title="相关文献"></a>相关文献</h3><p><a target="_blank" rel="noopener" href="https://github.com/yiwenshao/Practical-Cryptdb">https://github.com/yiwenshao/Practical-Cryptdb</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Yiwen Shao
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://yiwenshao.github.io/2018/03/19/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%904-%E5%8A%A0%E5%AF%86%E5%85%83%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%86%99/" title="CryptDB代码分析4-加密元数据读写">https://yiwenshao.github.io/2018/03/19/CryptDB代码分析4-加密元数据读写/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/CryptDB/" rel="tag"># CryptDB</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/03/11/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%903-%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E7%BB%93%E6%9E%84/" rel="prev" title="CryptDB代码分析3-元数据管理结构">
+                  <i class="fa fa-chevron-left"></i> CryptDB代码分析3-元数据管理结构
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/03/25/CryptDB%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%905-%E5%BA%95%E5%B1%82%E5%8A%A0%E5%AF%86%E5%BA%93%E4%B8%8E%E5%8A%A0%E5%AF%86%E5%B1%82/" rel="next" title="CryptDB代码分析5-底层加密库与加密层">
+                  CryptDB代码分析5-底层加密库与加密层 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments gitalk-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.css" integrity="sha256-AJnUHL7dBv6PGaeyPQJcgQPDjt/Hn/PvYZde1iqfp8U=" crossorigin="anonymous">
+
+<script class="next-config" data-name="gitalk" type="application/json">{"enable":true,"github_id":"yiwenshao","repo":"yiwenshao.github.io","client_id":"caf54f5cbf7133c52626","client_secret":"4867d3f7bf139b0fc49128bed4a80fc34574f1df","admin_user":null,"distraction_free_mode":true,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":null,"js":{"url":"https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.min.js","integrity":"sha256-Pmj85ojLaPOWwRtlMJwmezB/Qg8BzvJp5eTzvXaYAfA="},"path_md5":"c9267793c7b98d70518b0a0646d49248"}</script>
+<script src="/js/third-party/comments/gitalk.js"></script>
+
+</body>
+</html>

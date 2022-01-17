@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.0.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" integrity="sha256-mUZM63G8m73Mcidfrv5E+Y61y7a12O5mW4ezU3bxqW4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"yiwenshao.github.io","root":"/","images":"/images","scheme":"Pisces","darkmode":false,"version":"8.8.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+<meta name="description" content="最近在开源代码中遇到MySQL-Proxy, 其允许lua脚本实现用户的个性化配置, lua脚本可以引用C&#x2F;C++的动态链接库完成一些复杂的功能. 本文对最近接触到的lua和C&#x2F;C++混合的相关接口使用做个总结. 本文的完整代码在文末的附录中, 代码测试在Ubuntu16.04+lua5.1下完成, 不同版本可能API有所变化, 可以参考文末给出的官方文档链接.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="lua与Cpp传递参数接口介绍">
+<meta property="og:url" content="https://yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/index.html">
+<meta property="og:site_name" content="yiwenshao">
+<meta property="og:description" content="最近在开源代码中遇到MySQL-Proxy, 其允许lua脚本实现用户的个性化配置, lua脚本可以引用C&#x2F;C++的动态链接库完成一些复杂的功能. 本文对最近接触到的lua和C&#x2F;C++混合的相关接口使用做个总结. 本文的完整代码在文末的附录中, 代码测试在Ubuntu16.04+lua5.1下完成, 不同版本可能API有所变化, 可以参考文末给出的官方文档链接.">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-12-11T09:32:55.000Z">
+<meta property="article:modified_time" content="2016-12-11T09:32:55.000Z">
+<meta property="article:author" content="Yiwen Shao">
+<meta property="article:tag" content="lua">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="虚拟栈">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/","path":"2016/12/11/lua与Cpp传递参数接口介绍/","title":"lua与Cpp传递参数接口介绍"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>lua与Cpp传递参数接口介绍 | yiwenshao</title>
+  
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">yiwenshao</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE"><span class="nav-number">1.</span> <span class="nav-text">相关环境配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HelloWorld"><span class="nav-number">2.</span> <span class="nav-text">HelloWorld</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#HelloWorld%E7%A8%8B%E5%BA%8F"><span class="nav-number">2.1.</span> <span class="nav-text">HelloWorld程序</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HelloWorld%E7%9A%84%E8%A7%A3%E9%87%8A"><span class="nav-number">3.</span> <span class="nav-text">HelloWorld的解释</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#lua%E4%B8%8Ec-%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0"><span class="nav-number">4.</span> <span class="nav-text">lua与c++传递参数</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%BF%94%E5%9B%9E%E5%80%BC"><span class="nav-number">4.1.</span> <span class="nav-text">返回值</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%8E%A5%E5%8F%97%E5%8F%82%E6%95%B0"><span class="nav-number">4.2.</span> <span class="nav-text">接受参数</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#lua%E8%99%9A%E6%8B%9F%E6%A0%88%E6%9C%BA%E5%88%B6"><span class="nav-number">4.3.</span> <span class="nav-text">lua虚拟栈机制</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%99%84%E5%BD%95"><span class="nav-number">6.</span> <span class="nav-text">附录</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%B0%83%E7%94%A8%E5%BA%93%E7%9A%84%E5%8F%A6%E5%A4%96%E4%B8%80%E7%A7%8D%E6%96%B9%E6%B3%95"><span class="nav-number">6.1.</span> <span class="nav-text">调用库的另外一种方法</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E7%A8%8B%E5%BA%8F%E5%AE%8C%E6%95%B4%E4%BB%A3%E7%A0%81"><span class="nav-number">6.2.</span> <span class="nav-text">相关程序完整代码</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E6%96%87%E7%8C%AE%E5%8F%82%E8%80%83"><span class="nav-number">7.</span> <span class="nav-text">相关文献参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Yiwen Shao"
+      src="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+  <p class="site-author-name" itemprop="name">Yiwen Shao</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/yiwenshao/yiwenshao.github.io/graph/blogGraph//avatar/zoro.jpg">
+      <meta itemprop="name" content="Yiwen Shao">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="yiwenshao">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          lua与Cpp传递参数接口介绍
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2016-12-11 17:32:55" itemprop="dateCreated datePublished" datetime="2016-12-11T17:32:55+08:00">2016-12-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/default/" itemprop="url" rel="index"><span itemprop="name">default</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>最近在开源代码中遇到MySQL-Proxy, 其允许lua脚本实现用户的个性化配置, lua脚本可以引用C/C++的动态链接库完成一些复杂的功能. 本文对最近接触到的lua和C/C++混合的相关接口使用做个总结. 本文的完整代码在文末的附录中, 代码测试在Ubuntu16.04+lua5.1下完成, 不同版本可能API有所变化, 可以参考文末给出的官方文档链接.</p>
+<span id="more"></span>
+<h4 id="相关环境配置"><a href="#相关环境配置" class="headerlink" title="相关环境配置"></a>相关环境配置</h4><p>首先, 要在C++中使用相关的lua的工具, 需要lua.hpp这个头文件. 在Ubuntu下, 首先需要安装lua, 然后可以在/usr/include 目录下找到相关的头文件. 其他系统可能有所不同, 可以根据具体的头文件来进行设置, 完成这步以后, 就可以开始写相关程序.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">//Ubuntu16.04下的环境配置</span><br><span class="line">sudo apt-get install lua5.1</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="HelloWorld"><a href="#HelloWorld" class="headerlink" title="HelloWorld"></a>HelloWorld</h4><h5 id="HelloWorld程序"><a href="#HelloWorld程序" class="headerlink" title="HelloWorld程序"></a>HelloWorld程序</h5><p>为了能够快速了解怎么混合使用C++和lua, 这一小节先实现一个最简单的helloworld来了解整个程序的结构, 以及相应的需要注意的点, 然后介绍具体细节. </p>
+<p>首先, 我们的目标是提供一个firstFile.so动态库文件, 给我们的lua脚本使用. 于是, 我们新建一个文件<strong>test.cpp</strong>, 写入以下内容.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">#include&lt;lua5.1/lua.hpp&gt;</span><br><span class="line">#include&lt;lua5.1/lualib.h&gt;</span><br><span class="line">#include&lt;lua5.1/lauxlib.h&gt;</span><br><span class="line">#include&lt;iostream&gt;</span><br><span class="line">extern &quot;C&quot; int luaopen_firstLib(lua_State *L);</span><br><span class="line"></span><br><span class="line">int InternalHello(lua_State* L) &#123;</span><br><span class="line">    std::cout&lt;&lt;&quot;Hello World!&quot;&lt;&lt;std::endl;</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int luaopen_firstLib(lua_State *L)&#123;</span><br><span class="line">    static const luaL_reg Map[]=&#123;</span><br><span class="line">        &#123;&quot;look&quot;,InternalHello&#125;,</span><br><span class="line">        &#123;NULL,NULL&#125;</span><br><span class="line">    &#125;;  </span><br><span class="line">    luaL_register(L,&quot;first&quot;,Map);</span><br><span class="line">    return 1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后使用如下的命令编译动态链接库firstLib.so</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -fPIC -shared -o firstLib.so test.cpp -llua5.1</span><br></pre></td></tr></table></figure>
+<p>如果上面的配置环境没有错误的话, 这段代码应该正常编译, 并形成firstLib.so库文件.</p>
+<p>我们使用<strong>lua look.lua</strong>命令执行如下的脚本, 就可以获得HelloWorld输出:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">package.cpath = &quot;./?.so&quot;</span><br><span class="line">require &quot;firstLib&quot;</span><br><span class="line">first.look()</span><br></pre></td></tr></table></figure>
+
+<h4 id="HelloWorld的解释"><a href="#HelloWorld的解释" class="headerlink" title="HelloWorld的解释"></a>HelloWorld的解释</h4><p>我们现在对上面的helloworld做一定的解释, 如下:</p>
+<ul>
+<li><p>首先, 要编写一个<strong>firstLib.so</strong>, 我们需要在C++文件中编写对应的函数<strong>luaopen_firstLib</strong>.这个函数的名字是和库文件的名字<strong>对应</strong>的, 且返回值是int, 参数列表是lua_State*. </p>
+</li>
+<li><p>需要为luaopen_firstLib函数添加extern “C”做声明.</p>
+</li>
+<li><p>在luaopen_firstLib函数中, 可以注册自己库中希望对lua脚本提供的函数. 注册的方法如下:</p>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">int luaopen_firstLib(lua_State *L)&#123;</span><br><span class="line">    //1. 使用luaL_reg array类型进行注册</span><br><span class="line">    static const luaL_reg Map[]=&#123;</span><br><span class="line">    //2. 左边是字符串,表示对外提供的函数名. 右边是自己内部实现的函数名</span><br><span class="line">        &#123;&quot;look&quot;,InternalHello&#125;,</span><br><span class="line">   //3. 以NULL,NULL结尾</span><br><span class="line">        &#123;NULL,NULL&#125;</span><br><span class="line">    &#125;;  </span><br><span class="line">    //4. 调用注册函数, 其中first表示对外提供的库的名字</span><br><span class="line">    luaL_register(L,&quot;first&quot;,Map);</span><br><span class="line">    return 1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里需要注意几个命名的规则:</p>
+<ul>
+<li><p> 我们需要的库文件的名称是firstLib.so, 所以需要编写luaopen_firstLib函数做初始化</p>
+</li>
+<li><p>每个函数在c++文件中有一个名字(如InternalHello), 在注册给lua脚本用的时候, 可以指定另外一个名字(如look)</p>
+</li>
+<li><p>注册的时候, 可以给自己的库起名字, 比如first</p>
+</li>
+</ul>
+<p>lua中使用动态库的代码注释如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">--指定lua寻找动态库的路径</span><br><span class="line">package.cpath = &quot;./?.so&quot;</span><br><span class="line">--设置动态库, 并且调用luaopen_xxx函数进行初始化, 这里firstLib和库文件的名字对应</span><br><span class="line">require &quot;firstLib&quot;</span><br><span class="line">--执行动态库中提供的函数, 这里的库引用和自己注册的时候提供的库名字对应</span><br><span class="line">first.look()</span><br></pre></td></tr></table></figure>
+
+<p>对于自定义的函数, 其函数的返回值和参数列表是固定的, 不能改变, 如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">int (*lua_CFunction) (lua_State *L);</span><br></pre></td></tr></table></figure>
+
+<p>至此, 命名规则介绍完成, 我们可以编写任意的函数, 命名任意的库, 并且在lua脚本中进行调用. 剩下的部分, 就是传递参数了.</p>
+<h4 id="lua与c-传递参数"><a href="#lua与c-传递参数" class="headerlink" title="lua与c++传递参数"></a>lua与c++传递参数</h4><p>我在在C++中定义的函数只有一个参数, 即lua_State*, 我们需要通过这个参数来完成所有的参数传递, 以及传递返回值的功能, 这个功能基于lua的虚拟栈,并且需要使用一系列配套的函数来完成. 关于虚拟栈, 先可以简单理解成一个数组空间, lua要传参数给C++函数时, 就把数据放在这个数组中, C++函数从这个数组中读取数据. C++函数要返回数据时, 也把数据放在这个数组中, 这样lua脚本可以读取返回的数据, 所以虚拟栈就是两边通信的管道.这个虚拟栈可以通过下标访问,下表从1开始,1表示栈底.也可以接受负数的下标,-1表示栈顶. 后面小结将对其做具体介绍, 我们首先考虑从C++函数中返回内容给lua脚本的情况.</p>
+<h5 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h5><p>返回值可以使用如下的配套参数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">void lua_pushnumber (lua_State *L, lua_Number n);</span><br><span class="line">void lua_pushnil (lua_State *L);</span><br><span class="line">void lua_pushinteger (lua_State *L, lua_Integer n);</span><br><span class="line">void lua_pushboolean (lua_State *L, int b);</span><br><span class="line">void lua_createtable (lua_State *L, int narr, int nrec);</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>其中对于普通内置类型, 只要使用固定的函数就可以了, 官方文档的描述也比较详细, 代码可以参考文末的附录. 下面只考虑如何传table(表)类型.需要注意的是, 每个函数结束的时候, 有一个int类型的返回值, 这个返回值表示该函数返回给lua脚本的参数个数.如果返回值和实际入栈的参数不同, 就会出现错误.</p>
+<p>对于table类型, 有两种情况, 一种是一维的表, 其结构如下</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>k1</td>
+<td>v1</td>
+</tr>
+<tr>
+<td>k2</td>
+<td>v2</td>
+</tr>
+<tr>
+<td>k3</td>
+<td>v3</td>
+</tr>
+</tbody></table>
+<p>可以看到, 这就是普通的lua中的一维key-value结构表, 要在C++函数中产生这样的表并返回, 需要经过以下的步骤:</p>
+<p>首先, lua_createtable函数可以创建一个新表, 然后把其作为单个参数放到栈中. 这样, 栈中就增加了一个元素, 剩下的工作就是向表里面添加kv对. 比如要往一个表中添加4个kv对, 可以写如下的函数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">static void mylua_pushtable2(lua_State *const l)&#123; </span><br><span class="line">--建立新的一维表, 入栈, 表中有4个kv对, 第二个参数设置为0, 第一个参数是lua_state*</span><br><span class="line">    lua_createtable(l,0,4);</span><br><span class="line">--依次插入四个kv对, 先设置value, 然后设置key</span><br><span class="line">    lua_pushstring(l,&quot;v1&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;k1&quot;);</span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v2&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;k2&quot;);</span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v3&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;k3&quot;); </span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v4&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;k4&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面调用的函数setfield中的-2, 表示下标-2的参数, 也就是我们建立的table,现假设其名字是tableA,则 setfield达到的效果是,tableA[“key”]=top, 其中top是当前栈顶元素,并且同时栈顶元素出栈. top在这里正好就是v1.于是, 我们可以通过这样的方法设计一维的表返回. 如果需要key为int类型, 可以用lua_rawseti函数, 其函数签名如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">https://www.lua.org/manual/5.1/manual.html#2.8</span><br><span class="line">void lua_rawseti (lua_State *L, int index, int n);</span><br></pre></td></tr></table></figure>
+<p>更多的函数介绍, 可以看官方文档.</p>
+<p>还有一种情况是多维的表, 也即嵌套的表, 给出如下的例子:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">myTable = &#123;</span><br><span class="line">    [0] = &#123; [&quot;field1&quot;] = 1, [&quot;field2&quot;] = 2,[&quot;field3&quot;] = 3 &#125;,</span><br><span class="line">    [1] = &#123; [&quot;field1&quot;] = 10, [&quot;field2&quot;] = 20,[&quot;field3&quot;] = 30 &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>返回嵌套表的实例代码如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">static void mylua_pushMultiTable(lua_State *const L)&#123; </span><br><span class="line">    lua_createtable(L, 2, 0); </span><br><span class="line"></span><br><span class="line">    lua_pushnumber(L, 1); </span><br><span class="line"></span><br><span class="line">        lua_createtable(L, 0, 3); </span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 1); </span><br><span class="line">        lua_setfield(L, -2, &quot;field1&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 2);</span><br><span class="line">        lua_setfield(L, -2, &quot;field2&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 3);</span><br><span class="line">        lua_setfield(L, -2, &quot;field3&quot;);</span><br><span class="line"></span><br><span class="line">    lua_settable(L, -3);</span><br><span class="line"></span><br><span class="line">    lua_pushnumber(L, 2);</span><br><span class="line">        lua_createtable(L, 0, 3);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 10);</span><br><span class="line">        lua_setfield(L, -2, &quot;field1&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 20);</span><br><span class="line">        lua_setfield(L, -2, &quot;field2&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 30);</span><br><span class="line">        lua_setfield(L, -2, &quot;field3&quot;);</span><br><span class="line"></span><br><span class="line">    lua_settable(L, -3);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到, 对于一个key对应内部value结构是一个表的情况, 需要用到lua_createtable的第二个参数, 表示最外层需要的项目个数.对于内部的每个表, 则再次使用建立一维表的方式来完成kv对的插入, 这里的lua_settable的作用和上面介绍的lua_setfield相似. 对于我们例子中的表, 外层有两个项目,key分别是0和1, 所以lua_createtable的第二个参数设置为2. 对于内层的表, 由于有三个项目, 所以lua_createtable的第三个参数设置为3.</p>
+<h5 id="接受参数"><a href="#接受参数" class="headerlink" title="接受参数"></a>接受参数</h5><p>接受从lua脚本中传递的参数可以使用如下的函数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">int lua_toboolean (lua_State *L, int index);</span><br><span class="line">double lua_tonumber (lua_State *L, int index);</span><br><span class="line">lua_Integer lua_tointeger (lua_State *L, int index);</span><br><span class="line">const char *lua_tolstring (lua_State *L, int index, size_t *len);</span><br><span class="line">int lua_next (lua_State *L, int index);</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+<p>可以看到, 接受参数需要用户显式指定下标和数据类型, 这样lua传递过来的数据才能正确解析.</p>
+<ul>
+<li>传string类型<br>lua传string类型是以const char * 来传递的, 是一个一’\0’结尾的c字符串. 在返回字符串的时候, 同时可以获得字符串的长度.可以使用如下的简单封装来直接获取C++中的std::string类型.</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">static void</span><br><span class="line">mylua_pushlstring(lua_State *const l, const std::string &amp;s) &#123;</span><br><span class="line">    lua_pushlstring(l, s.data(), s.length());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>传double类型</p>
+</li>
+<li><p>传bool类型<br>对于bool和double类型, 比较直接, index表示栈的位置, 通过下标就可以直接访问参数了. 下面介绍一下如何处理lua调用方传送过来的table类型.</p>
+</li>
+<li><p>传array类型<br>在lua中, array是一种特殊table, 其key值分别是1 2 3 4… 我们尝试在lua中构造一个如下的array, 并且通过函数进行传递:</p>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">para2=&#123; &quot;1&quot;,&quot;SHAOYIWEN&quot;,&quot;CS&quot; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>lua提供了一般形式的array传值模板, 我们假设传过来的array下标是t, 其解析的C++代码如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">lua_pushnil(L);</span><br><span class="line">while (lua_next(L, t) != 0) &#123;</span><br><span class="line">printf(&quot;%s - %s\n&quot;,</span><br><span class="line">      lua_typename(L, lua_type(L, -2)),</span><br><span class="line">      lua_typename(L, lua_type(L, -1)));</span><br><span class="line">lua_pop(L, 1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在上面的代码中, lua_next函数每次调用, 就会从当前虚拟栈中弹出一个值, 然后从下标指定的table变量中取出一个kv对, push到栈上. 如果table中没有kv对了, lua_next就返回0. 所以, 我们在调用lua_next前, 先在栈中push一个nil, lua_next调用的时候, 正好将这个值弹出栈, 然后在栈中添加一个kv对. 这样-2下标可以得到key, -1下标可以得到value. 使用完成以后, 主动pop一个值, 进入下一个循环, 直到table中的数据全部读取完. </p>
+<ul>
+<li>传table类型<br>对于普通的一维table, 直接使用和array一样的方式就可以了. 对于嵌套的table, 其实就是单维table的组合, 现给出一个例子.</li>
+</ul>
+<p>我们在嵌套的table中存了这样的数据, 并将其通过函数传送给c函数.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">para4=&#123;[&quot;k1&quot;]=&#123;[&quot;ik1&quot;]=&quot;v1&quot;,[&quot;ik2&quot;]=&quot;v2&quot;&#125;,[&quot;k2&quot;]=&#123;[&quot;ik1&quot;]=&quot;v11&quot;,[&quot;ik2&quot;]=&quot;v22&quot;&#125; &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>那么, 在c代码中, 假设这个是第四个参数, 我们可以通过如下的代码嵌套的table类型. </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">static std::string</span><br><span class="line">mylua_tolstring(lua_State *const l, int index)</span><br><span class="line">&#123;</span><br><span class="line">    size_t len;</span><br><span class="line">    char const *const s = lua_tolstring(l, index, &amp;len);</span><br><span class="line">    return std::string(s, len);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">lua_pushnil(L);</span><br><span class="line">while(lua_next(L,4)) &#123;</span><br><span class="line">    //获取外层的key</span><br><span class="line">    std::string key = mylua_tolstring(L,-2);</span><br><span class="line">    lua_pushnil(L);</span><br><span class="line">    //value是一个table类型,此时下标是-2,故而用一位table解析的模板处理</span><br><span class="line">    while(lua_next(L,-2))&#123;</span><br><span class="line">      std::string ikey = mylua_tolstring(L,-2);</span><br><span class="line">      std::string ivalue = mylua_tolstring(L,-1);</span><br><span class="line">      std::cout&lt;&lt;&quot;ikey: &quot;&lt;&lt;ikey&lt;&lt;&quot;  ivalue: &quot;&lt;&lt;ivalue&lt;&lt;std::endl;</span><br><span class="line">      lua_pop(L,1);</span><br><span class="line">   &#125;</span><br><span class="line">   lua_pop(L,1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到, 对于一维的array的情况, 我们调用的lua_next以后, 栈上有一对kv, key和value都是基础类型. 而对于多维表的情况, value依然是一个table类型, 所以处理的方法就是再进行一个层次的lua_next调用, 把table类型的value解析出来. 至此, 我们已经可以在lua和c++之间传递基础数据类型, 一维表类型, 以及嵌套表类型这三种数据了. </p>
+<h5 id="lua虚拟栈机制"><a href="#lua虚拟栈机制" class="headerlink" title="lua虚拟栈机制"></a>lua虚拟栈机制</h5><p>现在我们已经知道了lua和C/C++如何相互传参数, 接下来简单介绍一下其基本原理. 我们知道, 在一般情况下, c语言本身的函数调用是通过栈来传递参数的. lua和C/C++的参数则是通过lua虚拟栈来进行参数传递. 栈中可以存lua参数. lua的每次C/C++函数调用, 都会建立新的虚拟栈, 这个栈也是C/C++函数返回参数必须用到的. 这个虚拟栈支持下标访问. 从栈底开始由1编号, 也接受负数的下表, -1代表栈顶, -n代表栈底. 需要注意的是, 这个栈的下表访问不收C/C++内部函数调用的影响, 也就是说, 我们通过lua调用了动态库中的函数A, 函数A进一步调用了内部的函数B, 这不会影响栈中参数的下标.</p>
+<p>lua的栈默认支持最大下标20的访问, 如果需要更多的空间, 则可以通过lua_checkstack函数进行空间申请.</p>
+<p>对于参数的传递, 其中lua调用函数的时候, 参数是从左到右的顺序以此入栈的. 这也就是编号1可以获得第一个参数的原因. 参数返回的时候, 第一个参数先入栈, 并且最后返回参数的个数, 这样lua调用方就知道获取几个参数. 栈中剩余的内容会在调用以后被清除.</p>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><p>我们可以看到, lua和C++通过虚拟栈的机制来通信, 完成了值传递过程. 对于函数的多个参数, 其约定好了参数入栈的顺序, 对于返回值, 其直接通过return一个整数来告诉lua脚本返回了多少个参数. lua和C++的数据类型系统并不一致, 所以lua提供了配套的函数进行数据类型的转换. lua数据可以转换到C++中的double,int,bool等类型. 对于C中没有的表类型, 则是通过虚拟栈以及lua_next配套函数, 提供具体到表中每个值的访问, 这样用户就可以在C++中处理复杂的嵌套表数据结构了.</p>
+<h4 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h4><h5 id="调用库的另外一种方法"><a href="#调用库的另外一种方法" class="headerlink" title="调用库的另外一种方法"></a>调用库的另外一种方法</h5><p>要使用动态库, 除了使用require以外, 还可以使用package.loadlib.事实上, lua的require就是基于package.loadlib实现的. 具体可以看参考文献, 下面给出一个简单的例子:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">-- 加载动态链接库, 并进行链接, 返回f是函数的句柄</span><br><span class="line">f=package.loadlib(&quot;./firstLib.so&quot;,&quot;luaopen_firstLib&quot;)</span><br><span class="line">-- 如果返回成功, 则可以通过句柄调用luaopen_firstLib函数</span><br><span class="line">if f then</span><br><span class="line">    f() </span><br><span class="line">else</span><br><span class="line">    io.write(&quot;error&quot;)</span><br><span class="line">end</span><br><span class="line">--注册完成以后, 可以使用任意的函数</span><br><span class="line">first.look()</span><br></pre></td></tr></table></figure>
+<p>由此我们也可以知道, luaopen_firstLib作为初始化函数并不是必须的, 只是在我们使用require的时候, 这样命名能够实现自动初始化. 但是我们如果使用底层的loadlib函数, 则可以指定任意名字的函数来实现初始化函数注册的工作, 这样就不一定需要写luaopen__xxx函数了;</p>
+<h5 id="相关程序完整代码"><a href="#相关程序完整代码" class="headerlink" title="相关程序完整代码"></a>相关程序完整代码</h5><p>给出我测试过程中使用到的一些测试程序完整代码共参考</p>
+<ul>
+<li>完整的测试代码test.cpp</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br></pre></td><td class="code"><pre><span class="line">#include&lt;lua5.1/lua.hpp&gt;</span><br><span class="line">#include&lt;lua5.1/lualib.h&gt;</span><br><span class="line">#include&lt;lua5.1/lauxlib.h&gt;</span><br><span class="line">#include&lt;iostream&gt;</span><br><span class="line">#include&lt;string&gt;</span><br><span class="line">extern &quot;C&quot; int luaopen_firstLib(lua_State *L);</span><br><span class="line">extern &quot;C&quot; int InternalHello(lua_State* L);</span><br><span class="line"></span><br><span class="line">static std::string</span><br><span class="line">mylua_tolstring(lua_State *const l, int index)</span><br><span class="line">&#123;</span><br><span class="line">    size_t len;</span><br><span class="line">    char const *const s = lua_tolstring(l, index, &amp;len);</span><br><span class="line">    return std::string(s, len);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void StackPrint(lua_State *L, const char * Str) &#123;</span><br><span class="line">    int J, Top;</span><br><span class="line">    Top = lua_gettop(L);</span><br><span class="line">    std::cout&lt;&lt;&quot;Top: &quot;&lt;&lt;Top&lt;&lt;std::endl;</span><br><span class="line">    printf(&quot;%-26s [&quot;, Str);</span><br><span class="line">    for (J = 1; J &lt;= Top; J++) &#123;</span><br><span class="line">        if (lua_isnil(L, J)) printf(&quot;-\t&quot;);</span><br><span class="line">        else std::cout&lt;&lt;mylua_tolstring(L,J)&lt;&lt;&quot;\t&quot;;</span><br><span class="line">    &#125; </span><br><span class="line">    printf(&quot;]\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void</span><br><span class="line">mylua_pushlstring(lua_State *const l, const std::string &amp;s) </span><br><span class="line">&#123;</span><br><span class="line">    lua_pushlstring(l, s.data(), s.length());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void mylua_pushtable(lua_State *const l)&#123;</span><br><span class="line">    lua_createtable(l,0,4);</span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v1&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;1&quot;);</span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v2&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;1&quot;);</span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v3&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;3&quot;); </span><br><span class="line"></span><br><span class="line">    lua_pushstring(l,&quot;v4&quot;);</span><br><span class="line">    lua_setfield(l,-2,&quot;4&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void mylua_pushMultiTable(lua_State *const L)&#123;</span><br><span class="line">    lua_createtable(L, 2, 0);</span><br><span class="line"></span><br><span class="line">    lua_pushnumber(L, 1);</span><br><span class="line"></span><br><span class="line">        lua_createtable(L, 0, 3);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 1);</span><br><span class="line">        lua_setfield(L, -2, &quot;field1&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 2);</span><br><span class="line">        lua_setfield(L, -2, &quot;field2&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 3);</span><br><span class="line">        lua_setfield(L, -2, &quot;field3&quot;);</span><br><span class="line"></span><br><span class="line">        lua_settable(L, -3);</span><br><span class="line"></span><br><span class="line">    lua_pushnumber(L, 2);</span><br><span class="line">        lua_createtable(L, 0, 3);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 10);</span><br><span class="line">        lua_setfield(L, -2, &quot;field1&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 20);</span><br><span class="line">        lua_setfield(L, -2, &quot;field2&quot;);</span><br><span class="line"></span><br><span class="line">        lua_pushnumber(L, 30);</span><br><span class="line">        lua_setfield(L, -2, &quot;field3&quot;);</span><br><span class="line"></span><br><span class="line">        lua_settable(L, -3);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int InternalHello(lua_State* L) &#123;    </span><br><span class="line">    int n = lua_gettop(L);</span><br><span class="line">    std::cout&lt;&lt;&quot;number of arguments: &quot;&lt;&lt;n&lt;&lt;std::endl;</span><br><span class="line">    std::string s = mylua_tolstring(L,1);</span><br><span class="line">    std::cout&lt;&lt;s&lt;&lt;std::endl;</span><br><span class="line">    std::cout&lt;&lt;&quot;Hello World!&quot;&lt;&lt;std::endl;</span><br><span class="line">    //arguments</span><br><span class="line">    if(!lua_istable(L, 2))&#123;</span><br><span class="line">        std::cout&lt;&lt;&quot;para 2 is not table&quot;&lt;&lt;std::endl;</span><br><span class="line">    &#125;else&#123;</span><br><span class="line">        lua_pushnil(L);</span><br><span class="line">        while(lua_next(L,2))&#123;</span><br><span class="line">            printf(&quot;%s - %s\n&quot;,</span><br><span class="line">              lua_typename(L, lua_type(L, -2)),</span><br><span class="line">              lua_typename(L, lua_type(L, -1)));</span><br><span class="line">              int key = lua_tointeger(L,-2);</span><br><span class="line">              std::string value = mylua_tolstring(L,-1);</span><br><span class="line">              std::cout&lt;&lt;&quot;key: &quot;&lt;&lt;key&lt;&lt;&quot;:&quot;&lt;&lt;&quot;value: &quot;&lt;&lt;value&lt;&lt;std::endl;</span><br><span class="line">              lua_pop(L,1); </span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if(!lua_istable(L,3))&#123;</span><br><span class="line">        std::cout&lt;&lt;&quot;para 3 is not table&quot;&lt;&lt;std::endl;</span><br><span class="line">    &#125;else&#123;</span><br><span class="line">        lua_pushnil(L);</span><br><span class="line">        while(lua_next(L,3))&#123;</span><br><span class="line">              std::string key = mylua_tolstring(L,-2);</span><br><span class="line">              std::string value = mylua_tolstring(L,-1);</span><br><span class="line">              std::cout&lt;&lt;&quot;key: &quot;&lt;&lt;key&lt;&lt;&quot;:&quot;&lt;&lt;&quot;value: &quot;&lt;&lt;value&lt;&lt;std::endl;</span><br><span class="line">              lua_pop(L,1); </span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if(!lua_istable(L,4))&#123;</span><br><span class="line">        std::cout&lt;&lt;&quot;para 4 is not table&quot;&lt;&lt;std::endl;</span><br><span class="line">    &#125;else&#123;</span><br><span class="line">        lua_pushnil(L);</span><br><span class="line">        while(lua_next(L,4))&#123;</span><br><span class="line">            std::string key = mylua_tolstring(L,-2);</span><br><span class="line">            lua_pushnil(L);</span><br><span class="line">            while(lua_next(L,-2))&#123;</span><br><span class="line">              std::string ikey = mylua_tolstring(L,-2);</span><br><span class="line">              std::string ivalue = mylua_tolstring(L,-1);</span><br><span class="line">              std::cout&lt;&lt;&quot;ikey: &quot;&lt;&lt;ikey&lt;&lt;&quot;  ivalue: &quot;&lt;&lt;ivalue&lt;&lt;std::endl;</span><br><span class="line">              lua_pop(L,1);</span><br><span class="line">           &#125;</span><br><span class="line">           lua_pop(L,1);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    //return values</span><br><span class="line">    //r1</span><br><span class="line">    mylua_pushlstring(L,&quot;ACK&quot;);</span><br><span class="line">    //r2</span><br><span class="line">    lua_pushinteger(L,1);</span><br><span class="line">    //r3</span><br><span class="line">    mylua_pushtable(L);</span><br><span class="line">    //r4</span><br><span class="line">    mylua_pushMultiTable(L);</span><br><span class="line">    //r5</span><br><span class="line">    lua_pushnil(L);</span><br><span class="line">    //r6</span><br><span class="line">    lua_pushboolean(L,false);</span><br><span class="line">    //r7</span><br><span class="line">    lua_pushnumber(L,1.24);  </span><br><span class="line"></span><br><span class="line">    return 7;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int luaopen_firstLib(lua_State *L)&#123;</span><br><span class="line">    static const luaL_reg Map[]=&#123;</span><br><span class="line">        &#123;&quot;look&quot;,InternalHello&#125;,</span><br><span class="line">        &#123;NULL,NULL&#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    luaL_register(L,&quot;first&quot;,Map);</span><br><span class="line">    return 1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+
+<ul>
+<li>配套的lua脚本look.lua</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">package.cpath = &quot;./?.so&quot;</span><br><span class="line">require &quot;firstLib&quot;</span><br><span class="line">function printTable(a)</span><br><span class="line">    for k,v in pairs(a) do</span><br><span class="line">        print(k..&quot;:&quot;..v)</span><br><span class="line">    end</span><br><span class="line">end</span><br><span class="line"></span><br><span class="line">function printMultiTable(a)</span><br><span class="line">    for k,v in pairs(a) do</span><br><span class="line">        for ik,iv in pairs(v) do</span><br><span class="line">            print(ik..&quot;:&quot;..iv)</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">end</span><br><span class="line">para2=&#123;&quot;1&quot;,&quot;SHAOYIWEN&quot;,&quot;CS&quot;&#125;</span><br><span class="line">para3=&#123;[&quot;k1&quot;]=&quot;v1&quot;,[&quot;k2&quot;]=&quot;v2&quot;,[&quot;k3&quot;]=&quot;v3&quot;&#125;</span><br><span class="line">para4=&#123;[&quot;k1&quot;]=&#123;[&quot;ik1&quot;]=&quot;v1&quot;,[&quot;ik2&quot;]=&quot;v2&quot;&#125;,[&quot;k2&quot;]=&#123;[&quot;ik1&quot;]=&quot;v11&quot;,[&quot;ik2&quot;]=&quot;v22&quot;&#125;&#125;</span><br><span class="line"></span><br><span class="line">a,b,c,d=first.look(&quot;para1&quot;,para2,para3,para4)</span><br><span class="line">print(a)</span><br><span class="line">print(b)</span><br><span class="line">printTable(c)</span><br><span class="line">printMultiTable(d)</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<ul>
+<li>书上给出的栈处理的测试代码</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">//g++ -fPIC -shared -o stacklook.so stacklook.cpp -llua5.1</span><br><span class="line">#include&lt;lua5.1/lua.hpp&gt;</span><br><span class="line">#include&lt;lua5.1/lualib.h&gt;</span><br><span class="line">#include&lt;lua5.1/lauxlib.h&gt;</span><br><span class="line">#include&lt;stdio.h&gt;</span><br><span class="line">#define STACKOP(Code) (Code), LclStackPrint(L, #Code)</span><br><span class="line"></span><br><span class="line">static void LclStackPrint(lua_State *L, const char * Str)&#123;</span><br><span class="line">    int J, Top;</span><br><span class="line">    printf(&quot;%-26s [&quot;, Str);</span><br><span class="line">    Top = lua_gettop(L);</span><br><span class="line">    for (J = 1; J &lt;= Top; J++) &#123;</span><br><span class="line">        if (lua_isnil(L, J)) printf(&quot;-&quot;);</span><br><span class="line">    &#125; </span><br><span class="line">    printf(&quot;]\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static int LclStackLook(lua_State *L)&#123;</span><br><span class="line">// three integers &lt;- stack.look(zero or more integers)</span><br><span class="line">// LclStackLook</span><br><span class="line">    int J, Top;</span><br><span class="line">    for (J = 1, Top = lua_gettop(L); J &lt;= Top; J++)</span><br><span class="line">        luaL_checkinteger(L, J);</span><br><span class="line">        LclStackPrint(L, &quot;Initial stack&quot;);</span><br><span class="line">        STACKOP(lua_settop(L, 3));</span><br><span class="line">        STACKOP(lua_settop(L, 5));</span><br><span class="line">        STACKOP(lua_pushinteger(L, 5));</span><br><span class="line">        STACKOP(lua_pushinteger(L, 4));</span><br><span class="line">        STACKOP(lua_replace(L, -4));</span><br><span class="line">        STACKOP(lua_replace(L, 5));</span><br><span class="line">        STACKOP(lua_remove(L, 3));</span><br><span class="line">        STACKOP(lua_pushinteger(L, 3));</span><br><span class="line">        STACKOP(lua_insert(L, -3));</span><br><span class="line">        STACKOP(lua_pushvalue(L, 2));</span><br><span class="line">        STACKOP(lua_pop(L, 1));</span><br><span class="line">        return 3;</span><br><span class="line">&#125; // LclStackLook</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">extern &quot;C&quot; int luaopen_stacklook(lua_State *L);</span><br><span class="line"></span><br><span class="line">int luaopen_stacklook(lua_State *L)&#123;</span><br><span class="line">    printf(&quot;luaopen_stacklook\n&quot;);</span><br><span class="line">    static const luaL_reg Map[] = &#123;</span><br><span class="line">        //User call look instead of LclStackLook </span><br><span class="line">        &#123;&quot;look&quot;, LclStackLook&#125;,</span><br><span class="line">        &#123;NULL, NULL&#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    //the name of the module is stack instead of stacklook</span><br><span class="line">    luaL_register(L, &quot;stack&quot;, Map);</span><br><span class="line"></span><br><span class="line">    return 1;</span><br><span class="line">&#125; // luaopen_stacklook</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="相关文献参考"><a href="#相关文献参考" class="headerlink" title="相关文献参考"></a>相关文献参考</h4><p><a href="">[1] Beginning Lua Programming, Chapter11, 13</a><br><a target="_blank" rel="noopener" href="https://www.lua.org/pil/8.2.html">[2] https://www.lua.org/pil/8.2.html</a><br><a target="_blank" rel="noopener" href="https://www.lua.org/manual/5.1/">[3] 官方文档 https://www.lua.org/manual/5.1/</a><br><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/20147027/creating-a-simple-table-with-lua-tables-c-api">[4] http://stackoverflow.com/questions/20147027/creating-a-simple-table-with-lua-tables-c-api</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Yiwen Shao
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://yiwenshao.github.io/2016/12/11/lua%E4%B8%8ECpp%E4%BC%A0%E9%80%92%E5%8F%82%E6%95%B0%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D/" title="lua与Cpp传递参数接口介绍">https://yiwenshao.github.io/2016/12/11/lua与Cpp传递参数接口介绍/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/lua/" rel="tag"># lua</a>
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E6%A0%88/" rel="tag"># 虚拟栈</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016/12/04/Hbase%E6%A6%82%E8%BF%B0/" rel="prev" title="Hbase概述">
+                  <i class="fa fa-chevron-left"></i> Hbase概述
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016/12/18/linux%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E7%B3%BB%E5%88%97-%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84-1/" rel="next" title="linux网络编程系列-地址结构(1)">
+                  linux网络编程系列-地址结构(1) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments gitalk-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Yiwen Shao</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+  
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.css" integrity="sha256-AJnUHL7dBv6PGaeyPQJcgQPDjt/Hn/PvYZde1iqfp8U=" crossorigin="anonymous">
+
+<script class="next-config" data-name="gitalk" type="application/json">{"enable":true,"github_id":"yiwenshao","repo":"yiwenshao.github.io","client_id":"caf54f5cbf7133c52626","client_secret":"4867d3f7bf139b0fc49128bed4a80fc34574f1df","admin_user":null,"distraction_free_mode":true,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":null,"js":{"url":"https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.min.js","integrity":"sha256-Pmj85ojLaPOWwRtlMJwmezB/Qg8BzvJp5eTzvXaYAfA="},"path_md5":"7b8654cfac9c6f3b36c67827fbc8b4f6"}</script>
+<script src="/js/third-party/comments/gitalk.js"></script>
+
+</body>
+</html>
